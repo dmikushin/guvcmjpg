@@ -36,7 +36,6 @@
 
 #include "gviewv4l2core.h"
 #include "gviewrender.h"
-#include "gviewencoder.h"
 #include "gview.h"
 #include "video_capture.h"
 #include "options.h"
@@ -67,10 +66,6 @@ static uint32_t my_render_mask = REND_FX_YUV_NOFILT; /*render fx filter mask*/
 static int do_soft_autofocus = 0;
 /*single time focus (can happen during continues focus)*/
 static int do_soft_focus = 0;
-
-static __THREAD_TYPE encoder_thread;
-
-static int my_encoder_status = 0;
 
 static char status_message[80];
 
@@ -183,21 +178,6 @@ int video_capture_get_save_video()
 void video_capture_save_image()
 {
 	save_image = 1;
-}
-
-/*
- * get encoder started flag
- * args:
- *    none
- *
- * asserts:
- *    none
- *
- * returns: encoder started flag (1 -started; 0 -not started)
- */
-int get_encoder_status()
-{
-	return my_encoder_status;
 }
 
 /*
@@ -511,163 +491,6 @@ int key_RIGHT_callback(void *data)
 }
 
 /*
- * encoder loop (should run in a separate thread)
- * args:
- *    data - pointer to user data
- *
- * asserts:
- *   none
- *
- * returns: pointer to return code
- */
-static void *encoder_loop(void *data)
-{
-	my_encoder_status = 1;
-	
-	if(debug_level > 1)
-		printf("GUVCVIEW: encoder thread (tid: %u)\n",
-			(unsigned int) syscall (SYS_gettid));
-
-	int channels = 0;
-	int samprate = 0;
-
-	/*create the encoder context*/
-	encoder_context_t *encoder_ctx = encoder_get_context(
-		v4l2core_get_requested_frame_format(),
-		get_video_codec_ind(),
-		get_video_muxer(),
-		v4l2core_get_frame_width(),
-		v4l2core_get_frame_height(),
-		v4l2core_get_fps_num(),
-		v4l2core_get_fps_denom(),
-		channels,
-		samprate);
-
-	/*store external SPS and PPS data if needed*/
-	if(encoder_ctx->video_codec_ind == 0 && /*raw - direct input*/
-		v4l2core_get_requested_frame_format() == V4L2_PIX_FMT_H264)
-	{
-		/*request a IDR (key) frame*/
-		v4l2core_h264_request_idr();
-
-		if(debug_level > 0)
-			printf("GUVCVIEW: storing external pps and sps data in encoder context\n");
-		encoder_ctx->h264_pps_size = v4l2core_get_h264_pps_size();
-		if(encoder_ctx->h264_pps_size > 0)
-		{
-			encoder_ctx->h264_pps = calloc(encoder_ctx->h264_pps_size, sizeof(uint8_t));
-			if(encoder_ctx->h264_pps == NULL)
-			{
-				fprintf(stderr,"GUVCVIEW: FATAL memory allocation failure (encoder_loop): %s\n", strerror(errno));
-				exit(-1);
-			}
-			memcpy(encoder_ctx->h264_pps, v4l2core_get_h264_pps(), encoder_ctx->h264_pps_size);
-		}
-
-		encoder_ctx->h264_sps_size = v4l2core_get_h264_sps_size();
-		if(encoder_ctx->h264_sps_size > 0)
-		{
-			encoder_ctx->h264_sps = calloc(encoder_ctx->h264_sps_size, sizeof(uint8_t));
-			if(encoder_ctx->h264_sps == NULL)
-			{
-				fprintf(stderr,"GUVCVIEW: FATAL memory allocation failure (encoder_loop): %s\n", strerror(errno));
-				exit(-1);
-			}
-			memcpy(encoder_ctx->h264_sps, v4l2core_get_h264_sps(), encoder_ctx->h264_sps_size);
-		}
-	}
-
-	uint32_t current_framerate = 0;
-	if(v4l2core_get_requested_frame_format() == V4L2_PIX_FMT_H264)
-	{
-		/* store framerate since it may change due to scheduler*/
-		current_framerate = v4l2core_get_h264_frame_rate_config();
-	}
-
-	char *video_filename = NULL;
-	/*get_video_[name|path] always return a non NULL value*/
-	char *name = strdup(get_video_name());
-	char *path = strdup(get_video_path());
-
-	if(get_video_sufix_flag())
-	{
-		char *new_name = add_file_suffix(path, name);
-		free(name); /*free old name*/
-		name = new_name; /*replace with suffixed name*/
-	}
-	int pathsize = strlen(path);
-	if(path[pathsize] != '/')
-		video_filename = smart_cat(path, '/', name);
-	else
-		video_filename = smart_cat(path, 0, name);
-
-	snprintf(status_message, 79, _("saving video to %s"), video_filename);
-	gui_status_message(status_message);
-
-	/*muxer initialization*/
-	encoder_muxer_init(encoder_ctx, video_filename);
-
-	/*start video capture*/
-	video_capture_save_video(1);
-
-	int treshold = 102400; /*100 Mbytes*/
-	int64_t last_check_pts = 0; /*last pts when disk supervisor called*/
-
-	while(video_capture_get_save_video())
-	{
-		/*process the video buffer*/
-		if(encoder_process_next_video_buffer(encoder_ctx) > 0)
-		{
-			/* 
-			 * no buffers to process
-			 * sleep a couple of milisec
-			 */
-			 struct timespec req = {
-				.tv_sec = 0,
-				.tv_nsec = 1000000};/*nanosec*/
-			 nanosleep(&req, NULL);
-			 
-		}	
-
-		/*disk supervisor*/
-		if(encoder_ctx->enc_video_ctx->pts - last_check_pts > 2 * NSEC_PER_SEC)
-		{
-			last_check_pts = encoder_ctx->enc_video_ctx->pts;
-
-			if(!encoder_disk_supervisor(treshold, path))
-			{
-				/*stop capture*/
-				gui_set_video_capture_button_status(0);
-			}
-		}
-	}
-	
-	/*flush the video buffer*/
-	encoder_flush_video_buffer(encoder_ctx);
-
-	/*close the muxer*/
-	encoder_muxer_close(encoder_ctx);
-
-	/*close the encoder context (clean up)*/
-	encoder_close(encoder_ctx);
-
-	if(v4l2core_get_requested_frame_format() == V4L2_PIX_FMT_H264)
-	{
-		/* restore framerate */
-		v4l2core_set_h264_frame_rate_config(current_framerate);
-	}
-
-	/*clean string*/
-	free(video_filename);
-	free(path);
-	free(name);
-
-	my_encoder_status = 0;
-
-	return ((void *) 0);
-}
-
-/*
  * capture loop (should run in a separate thread)
  * args:
  *    data - pointer to user data (options data)
@@ -718,16 +541,6 @@ void *capture_loop(void *data)
 		render_set_event_callback(EV_KEY_DOWN, &key_DOWN_callback, NULL);
 		render_set_event_callback(EV_KEY_LEFT, &key_LEFT_callback, NULL);
 		render_set_event_callback(EV_KEY_RIGHT, &key_RIGHT_callback, NULL);
-	}
-
-	/*add a video capture timer*/
-	if(my_options->video_timer > 0)
-	{
-		my_video_timer = NSEC_PER_SEC * my_options->video_timer;
-		my_video_begin_time = v4l2core_time_get_timestamp(); /*timer count*/
-		/*if are not saving video start it*/
-		if(!get_encoder_status())
-			start_encoder_thread();
 	}
 
 	/*add a photo capture timer*/
@@ -905,34 +718,6 @@ void *capture_loop(void *data)
 					}
 
 				}
-				encoder_add_video_frame(input_frame, size, frame->timestamp, frame->isKeyframe);
-
-				/*
-				 * exponencial scheduler
-				 *  with 50% threshold (nanosec)
-				 *  and max value of 250 ms (4 fps)
-				 */
-				int time_sched = encoder_buff_scheduler(ENCODER_SCHED_EXP, 0.5, 250);
-				if(time_sched > 0)
-				{
-					switch(v4l2core_get_requested_frame_format())
-					{
-						case  V4L2_PIX_FMT_H264:
-						{
-							uint32_t framerate = time_sched; /*nanosec*/
-							v4l2core_set_h264_frame_rate_config(framerate);
-							break;
-						}
-						default:
-						{
-							struct timespec req = {
-								.tv_sec = 0,
-								.tv_nsec = time_sched};/*nanosec*/
-							nanosleep(&req, NULL);
-							break;
-						}
-					}
-				}
 			}
 			/*we are done with the frame buffer release it*/
 			v4l2core_release_frame(frame);
@@ -941,53 +726,7 @@ void *capture_loop(void *data)
 
 	v4l2core_stop_stream();
 	
-	/*if we are still saving video then stop it*/
-	if(video_capture_get_save_video())
-		stop_encoder_thread();
-
 	render_close();
 
 	return ((void *) 0);
-}
-
-/*
- * start the encoder thread
- * args:
- *   data - pointer to user data
- *
- * asserts:
- *   none
- *
- * returns: error code
- */
-int start_encoder_thread(void *data)
-{
-	int ret = __THREAD_CREATE(&encoder_thread, encoder_loop, data);
-	
-	if(ret)
-		fprintf(stderr, "GUVCVIEW: encoder thread creation failed (%i)\n", ret);
-	else if(debug_level > 2)
-		printf("GUVCVIEW: created encoder thread with tid: %u\n", 
-			(unsigned int) encoder_thread);
-
-	return ret;
-}
-
-/*
- * stop the encoder thread
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: error code
- */
-int stop_encoder_thread()
-{
-	video_capture_save_video(0);
-
-	__THREAD_JOIN(encoder_thread);
-
-	return 0;
 }

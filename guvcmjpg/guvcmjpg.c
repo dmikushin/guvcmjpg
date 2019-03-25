@@ -32,7 +32,6 @@
 #include "gview.h"
 #include "gviewv4l2core.h"
 #include "gviewrender.h"
-#include "gviewencoder.h"
 #include "core_time.h"
 
 #include "video_capture.h"
@@ -198,18 +197,6 @@ int main(int argc, char *argv[])
 	if(debug_level > 1)
 		printf("GUVCVIEW: setting video codec to '%s'\n", my_config->video_codec);
 		
-	int vcodec_ind = encoder_get_video_codec_ind_4cc(my_config->video_codec);
-	if(vcodec_ind < 0)
-	{
-		char message[50];
-		snprintf(message, 49, "invalid video codec '%s' using raw input", my_config->video_codec);
-		gui_error("Guvcmjpg warning", message, 0);
-
-		fprintf(stderr, "GUVCVIEW: invalid video codec '%s' using raw input\n", my_config->video_codec);
-		vcodec_ind = 0;
-	}
-	set_video_codec_ind(vcodec_ind);
-
 	/*check if need to load a profile*/
 	if(my_options->prof_filename)
 		v4l2core_load_control_profile(my_options->prof_filename);
@@ -222,14 +209,6 @@ int main(int argc, char *argv[])
 	set_profile_name(my_config->profile_name);
 	set_profile_path(my_config->profile_path);
 
-	/*set the video file*/
-	if(!my_config->video_name)
-		my_config->video_name = strdup(get_video_name());
-	if(!my_config->video_path)
-		my_config->video_path = strdup(get_video_path());
-	set_video_name(my_config->video_name);
-	set_video_path(my_config->video_path);
-
 	/*set the photo(image) file*/
 	if(!my_config->photo_name)
 		my_config->photo_name = strdup(get_photo_name());
@@ -237,10 +216,6 @@ int main(int argc, char *argv[])
 		my_config->photo_path = strdup(get_photo_path());
 	set_photo_name(my_config->photo_name);
 	set_photo_path(my_config->photo_path);
-
-	encoder_set_verbosity(debug_level);
-	/*init the encoder*/
-	encoder_init();
 
 	/*start capture thread if not in control_panel mode*/
 	if(!my_options->control_panel)

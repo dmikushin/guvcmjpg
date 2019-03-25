@@ -164,49 +164,6 @@ GSList *get_video_codec_group_list_gtk3()
 }
 
 /*
- * set the video codec group list
- * args:
- *    list - pointer to GSList
- *
- * asserts:
- *    none
- *
- * returns: none
- */
-void set_video_codec_group_list_gtk3(GSList *list)
-{
-	video_codec_group = list;
-}
-
-/*
- * set webm codecs in codecs list
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: none
- */
-void set_webm_codecs_gtk3()
-{
-	/*force webm codecs*/
-	int video_codec_ind = encoder_get_webm_video_codec_index();
-	set_video_codec_ind(video_codec_ind);
-
-	/*widgets*/
-	GSList *vgroup = get_video_codec_group_list_gtk3();
-	int index = g_slist_length (vgroup) - (get_video_codec_ind() + 1);
-	GtkWidget* video_codec_item = g_slist_nth_data (vgroup, index);
-	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(video_codec_item), TRUE);
-
-	GSList *agroup = get_audio_codec_group_list_gtk3();
-	index = g_slist_length (agroup) - (get_audio_codec_ind() + 1);
-	GtkWidget* audio_codec_item = g_slist_nth_data (agroup, index);
-	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(audio_codec_item), TRUE);
-}
-
-/*
  * get the audio codec group list
  * args:
  *    none
@@ -621,16 +578,6 @@ int gui_attach_gtk3(int width, int height)
 
 	g_signal_connect (GTK_BUTTON(CapImageButt), "clicked",
 		G_CALLBACK (capture_image_clicked), NULL);
-
-	/*video button*/
-	CapVideoButt = gtk_toggle_button_new_with_mnemonic (_("Cap. Video (V)"));
-	gui_set_video_capture_button_status_gtk3(get_encoder_status());
-
-	gtk_box_pack_start(GTK_BOX(HButtonBox), CapVideoButt, TRUE, TRUE, 2);
-	gtk_widget_show (CapVideoButt);
-
-	g_signal_connect (GTK_BUTTON(CapVideoButt), "clicked",
-		G_CALLBACK (capture_video_clicked), NULL);
 
 	/*quit button*/
 	//GtkWidget *quitButton = gtk_button_new_from_stock(GTK_STOCK_QUIT);

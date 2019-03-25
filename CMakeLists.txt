@@ -16,14 +16,11 @@ find_package(AVUtil REQUIRED)
 FIND_PACKAGE(PkgConfig REQUIRED)
 PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
 
-file(GLOB GVIEW_ENCODER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/gview_encoder/*.c")
 file(GLOB GVIEW_RENDER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/gview_render/*.c")
 file(GLOB GVIEW_V4L2CORE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/gview_v4l2core/*.c")
 file(GLOB GUVCMJPG_SRC "${CMAKE_CURRENT_SOURCE_DIR}/guvcmjpg/*.c")
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
-
-add_library(gview_encoder STATIC ${GVIEW_ENCODER_SRC})
 
 add_library(gview_render STATIC ${GVIEW_RENDER_SRC})
 target_include_directories(gview_render PRIVATE ${SDL_INCLUDE_DIR})
@@ -34,9 +31,8 @@ target_include_directories(gview_v4l2core PRIVATE ${V4L2_INCLUDE_DIR})
 
 add_executable(guvcmjpg ${GUVCMJPG_SRC})
 target_compile_definitions(guvcmjpg PRIVATE VERSION="2.0.2")
-target_include_directories(guvcmjpg PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gview_encoder")
 target_include_directories(guvcmjpg PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gview_render")
 target_include_directories(guvcmjpg PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gview_v4l2core")
 target_include_directories(guvcmjpg PRIVATE ${GTK3_INCLUDE_DIRS})
-target_link_libraries(guvcmjpg gview_encoder gview_render gview_v4l2core m ${LibUSB_LIBRARIES} ${SDL_LIBRARY} ${GTK3_LIBRARIES} ${UDEV_LIBRARIES} ${PNG_LIBRARIES} ${V4L2_LIBRARY} ${AVCodec_LIBRARIES} ${AVUtil_LIBRARIES})
+target_link_libraries(guvcmjpg gview_render gview_v4l2core m ${LibUSB_LIBRARIES} ${SDL_LIBRARY} ${GTK3_LIBRARIES} ${UDEV_LIBRARIES} ${PNG_LIBRARIES} ${V4L2_LIBRARY} ${AVCodec_LIBRARIES} ${AVUtil_LIBRARIES})
 

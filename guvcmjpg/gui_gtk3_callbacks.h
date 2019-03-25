@@ -28,11 +28,8 @@
 
 #include <gtk/gtk.h>
 #include <glib.h>
-/* support for internationalization - i18n */
-#include <glib/gi18n.h>
 
 #include "gviewv4l2core.h"
-#include "gviewencoder.h"
 
 /*
  * delete event (close window)

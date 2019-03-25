@@ -39,7 +39,6 @@
 #include "gui.h"
 #include "gui_gtk3.h"
 #include "video_capture.h"
-#include "gviewencoder.h"
 #include "config.h"
 
 extern int debug_level;
@@ -73,7 +72,6 @@ static char *video_path = NULL;
 /*video sufix flag*/
 static int video_sufix_flag = 1;
 /*photo format*/
-static int video_muxer = ENCODER_MUX_MKV;
 
 static int my_video_codec_ind = 0;
 static int my_audio_codec_ind = 0;
@@ -95,50 +93,6 @@ static int my_fps[2] = {0, 0};
 int get_video_codec_ind()
 {
 	return my_video_codec_ind;
-}
-
-/*
- * sets the current video codec index
- * args:
- *   index - codec index
- *
- * asserts:
- *   none
- *
- * returns: none
- */
-void set_video_codec_ind(int index)
-{
-	my_video_codec_ind = index;
-
-	/*update config*/
-	config_t *my_config = config_get();
-	if(index == 0)
-		strncpy(my_config->video_codec, "raw", 4);
-	else
-	{
-		const char *codec_4cc = encoder_get_video_codec_4cc(index);
-		if(codec_4cc)
-		{
-			strncpy(my_config->video_codec, codec_4cc, 4);
-			lowercase(my_config->video_codec);
-		}
-	}
-}
-
-/*
- * gets the current audio codec index
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: current codec index
- */
-int get_audio_codec_ind()
-{
-	return my_audio_codec_ind;
 }
 
 /*
@@ -263,14 +217,6 @@ void gui_click_video_capture_button()
 	switch(gui_api)
 	{
 		case GUI_NONE:
-			if(!get_encoder_status())
-				start_encoder_thread();
-			else
-			{
-				if(check_video_timer())
-					reset_video_timer();
-				stop_encoder_thread();
-			}
 			break;
 
 		case GUI_GTK3:
@@ -450,36 +396,6 @@ void set_video_sufix_flag(int flag)
 }
 
 /*
- * gets video muxer
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: video muxer
- */
-int get_video_muxer()
-{
-	return video_muxer;
-}
-
-/*
- * sets video muxer
- * args:
- *   muxer - video muxer (ENCODER_MUX_[MKV|WEBM|AVI])
- *
- * asserts:
- *   none
- *
- * returns: none
- */
-void set_video_muxer(int muxer)
-{
-	video_muxer = muxer;
-}
-
-/*
  * gets the video file basename
  * args:
  *   none
@@ -495,99 +411,6 @@ char *get_video_name()
 		video_name = strdup("my_video.mkv");
 
 	return video_name;
-}
-
-/*
- * sets the video file basename
- * args:
- *   name: video file basename
- *
- * asserts:
- *   none
- *
- * returns: none
- */
-void set_video_name(const char *name)
-{
-	if(video_name != NULL)
-		free(video_name);
-
-	video_name = strdup(name);
-
-	/* update the config */
-	config_t *my_config = config_get();
-
-	/*this can be the function arg 'name'*/
-	if(my_config->video_name)
-		free(my_config->video_name);
-
-	/*so here we use the dup string*/
-	my_config->video_name = strdup(video_name);
-
-	/*get image format*/
-	char *ext = get_file_extension(name);
-	if(ext == NULL)
-		fprintf(stderr, "GUVCVIEW: no valid file extension for video file %s\n",
-			name);
-	else if( strcasecmp(ext, "mkv") == 0)
-		set_video_muxer(ENCODER_MUX_MKV);
-	else if ( strcasecmp(ext, "webm") == 0 )
-	{
-		set_video_muxer(ENCODER_MUX_WEBM);
-		/*force webm codecs*/
-		set_webm_codecs();
-	}
-	else if ( strcasecmp(ext, "avi") == 0 )
-		set_video_muxer(ENCODER_MUX_AVI);
-
-	if(ext)
-		free(ext);
-}
-
-/*
- * gets the video file path (to dir)
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: video file path
- */
-char *get_video_path()
-{
-	if(!video_path)
-		video_path = strdup(getenv("HOME"));
-
-	return video_path;
-}
-
-/*
- * sets video path (to dir)
- * args:
- *   path: video file path
- *
- * asserts:
- *   none
- *
- * returns: none
- */
-void set_video_path(const char *path)
-{
-	if(video_path != NULL)
-		free(video_path);
-
-	video_path = strdup(path);
-
-	/* update the config */
-	config_t *my_config = config_get();
-
-	/*this can be the function arg 'path'*/
-	if(my_config->video_path)
-		free(my_config->video_path);
-
-	/*so here we use the dup string*/
-	my_config->video_path = strdup(video_path);
 }
 
 /*
@@ -758,30 +581,6 @@ void set_photo_path(const char *path)
 
 	/*so here we use the dup string*/
 	my_config->photo_path = strdup(photo_path);
-}
-
-/*
- * set webm codecs in codecs list
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: none
- */
-void set_webm_codecs()
-{
-	switch(gui_api)
-	{
-		case GUI_NONE:
-			break;
-
-		case GUI_GTK3:
-		default:
-			set_webm_codecs_gtk3();
-			break;
-	}
 }
 
 /*
