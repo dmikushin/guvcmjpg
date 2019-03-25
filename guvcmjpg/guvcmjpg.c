@@ -191,7 +191,6 @@ int main(int argc, char *argv[])
 	/*make sure VU meter OSD is disabled since it's set by the audio capture*/
 	my_config->osd_mask &= ~REND_OSD_VUMETER_MONO;
 	my_config->osd_mask &= ~REND_OSD_VUMETER_STEREO;
-	render_set_osd_mask(my_config->osd_mask);
 
 	/*select video codec*/
 	if(debug_level > 1)
