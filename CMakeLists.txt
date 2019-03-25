@@ -34,7 +34,6 @@ target_include_directories(gview_v4l2core PRIVATE ${V4L2_INCLUDE_DIR})
 
 add_executable(guvcmjpg ${GUVCMJPG_SRC})
 target_compile_definitions(guvcmjpg PRIVATE VERSION="2.0.2")
-target_compile_definitions(guvcmjpg PRIVATE PACKAGE_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 target_include_directories(guvcmjpg PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gview_encoder")
 target_include_directories(guvcmjpg PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gview_render")
 target_include_directories(guvcmjpg PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gview_v4l2core")

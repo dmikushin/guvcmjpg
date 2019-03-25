@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 	{
 		char message[60];
 		snprintf(message, 59, "no video device (%s) found", my_options->device);
-		gui_error("Guvcview error", "no video device found", 1);
+		gui_error("Guvcmjpg error", "no video device found", 1);
 		v4l2core_close_v4l2_device_list();
 		options_clean();
 		return -1;
@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
 	{
 		char message[50];
 		snprintf(message, 49, "invalid video codec '%s' using raw input", my_config->video_codec);
-		gui_error("Guvcview warning", message, 0);
+		gui_error("Guvcmjpg warning", message, 0);
 
 		fprintf(stderr, "GUVCVIEW: invalid video codec '%s' using raw input\n", my_config->video_codec);
 		vcodec_ind = 0;
@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "GUCVIEW: also could not set the first listed stream format\n");
 				fprintf(stderr, "GUVCVIEW: Video capture failed\n");
 
-				gui_error("Guvcview error", "could not start a video stream in the device", 1);
+				gui_error("Guvcmjpg error", "could not start a video stream in the device", 1);
 			}
 		}
 
@@ -291,7 +291,7 @@ int main(int argc, char *argv[])
 			if(ret)
 			{
 				fprintf(stderr, "GUVCVIEW: Video thread creation failed\n");
-				gui_error("Guvcview error", "could not start the video capture thread", 1);
+				gui_error("Guvcmjpg error", "could not start the video capture thread", 1);
 			}
 			else if(debug_level > 2)
 				printf("GUVCVIEW: created capture thread with tid: %u\n", (unsigned int) capture_thread);

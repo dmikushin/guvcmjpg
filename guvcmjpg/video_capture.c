@@ -772,7 +772,7 @@ void *capture_loop(void *data)
 				{
 					fprintf(stderr, "GUCVIEW: also could not set the first listed stream format\n");
 
-					gui_error("Guvcview error", "could not start a video stream in the device", 1);
+					gui_error("Guvcmjpg error", "could not start a video stream in the device", 1);
 
 					return ((void *) -1);
 				}
@@ -812,9 +812,9 @@ void *capture_loop(void *data)
             if (last_fps != cur_fps) {
                 last_fps = cur_fps;
                 if (my_options->cmos_camera)
-                    snprintf(render_caption, 63, "Guvcview ver:%s - %s - CMOS %dx%d (%2.2f fps) - seq: %d",  VERSION, my_options->format, v4l2core_get_frame_width(), v4l2core_get_frame_height(), cur_fps, v);
+                    snprintf(render_caption, 63, "Guvcmjpg ver:%s - %s - CMOS %dx%d (%2.2f fps) - seq: %d",  VERSION, my_options->format, v4l2core_get_frame_width(), v4l2core_get_frame_height(), cur_fps, v);
                 else
-                    snprintf(render_caption, 63, "Guvcview ver:%s - %s - %dx%d (%2.2f fps) - seq: %d",  VERSION, my_options->format, v4l2core_get_frame_width(), v4l2core_get_frame_height(), cur_fps, v);
+                    snprintf(render_caption, 63, "Guvcmjpg ver:%s - %s - %dx%d (%2.2f fps) - seq: %d",  VERSION, my_options->format, v4l2core_get_frame_width(), v4l2core_get_frame_height(), cur_fps, v);
                 render_set_caption(render_caption);
                 v++;
             }

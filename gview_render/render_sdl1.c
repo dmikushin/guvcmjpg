@@ -144,7 +144,7 @@ static SDL_Overlay * video_init(int width, int height, int flags)
             if (info->blit_fill) printf("Color fills on hardware surfaces are accelerated\n");
         }
 
-        SDL_WM_SetCaption("Guvcview Video", NULL);
+        SDL_WM_SetCaption("Guvcmjpg Video", NULL);
 
         /* enable key repeat */
         SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY,SDL_DEFAULT_REPEAT_INTERVAL);

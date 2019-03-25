@@ -68,7 +68,7 @@ int gui_attach_gtk3_videoctrls(GtkWidget *parent)
 
 	if(format_index < 0)
 	{
-		gui_error("Guvcview error", "invalid pixel format", 0);
+		gui_error("Guvcmjpg error", "invalid pixel format", 0);
 		printf("GUVCVIEW: invalid pixel format\n");
 	}
 
@@ -79,7 +79,7 @@ int gui_attach_gtk3_videoctrls(GtkWidget *parent)
 
 	if(resolu_index < 0)
 	{
-		gui_error("Guvcview error", "invalid resolution index", 0);
+		gui_error("Guvcmjpg error", "invalid resolution index", 0);
 		printf("GUVCVIEW: invalid resolution index\n");
 	}
 

@@ -550,11 +550,11 @@ int gui_attach_gtk3(int width, int height)
 	/*check for device errors*/
 	//if(!device)
 	//{
-	//	gui_error("Guvcview error", "no video device found", 1);
+	//	gui_error("Guvcmjpg error", "no video device found", 1);
 	//	return -1;
 	//}
 
-	g_set_application_name(_("Guvcview Video Capture"));
+	g_set_application_name(_("Guvcmjpg Video Capture"));
 
 #if !GTK_VER_AT_LEAST(3,12)
 	/* make sure the type is realized so that we can change the properties*/
@@ -565,7 +565,7 @@ int gui_attach_gtk3(int width, int height)
 
 	/* Create a main window */
 	main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_title (GTK_WINDOW (main_window), _("Guvcview"));
+	gtk_window_set_title (GTK_WINDOW (main_window), _("Guvcmjpg"));
 	gtk_widget_show (main_window);
 
 	/* get screen resolution */
@@ -586,12 +586,6 @@ int gui_attach_gtk3(int width, int height)
 
 	/* Add delete event handler */
 	g_signal_connect(GTK_WINDOW(main_window), "delete_event", G_CALLBACK(delete_event), NULL);
-
-	/*window icon*/
-	char* icon1path = g_strconcat (PACKAGE_DATA_DIR, "/pixmaps/guvcview/guvcview.png", NULL);
-	if (g_file_test(icon1path, G_FILE_TEST_EXISTS))
-		gtk_window_set_icon_from_file(GTK_WINDOW (main_window), icon1path, NULL);
-	g_free(icon1path);
 
 	/*---------------------------- Main table ---------------------------------*/
 	GtkWidget *maintable = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
@@ -622,18 +616,6 @@ int gui_attach_gtk3(int width, int height)
 							GINT_TO_POINTER(0));
 	}
 
-	char *pix2path = g_strconcat (PACKAGE_DATA_DIR, "/pixmaps/guvcview/camera.png",NULL);
-	if (g_file_test(pix2path, G_FILE_TEST_EXISTS))
-	{
-		GtkWidget *ImgButton_Img = gtk_image_new_from_file (pix2path);
-#if GTK_VER_AT_LEAST(3,12)		
-		gtk_button_set_always_show_image(GTK_BUTTON(CapImageButt), TRUE);
-#endif
-		gtk_button_set_image(GTK_BUTTON(CapImageButt), ImgButton_Img);
-		gtk_button_set_image_position(GTK_BUTTON(CapImageButt), GTK_POS_TOP);
-	}
-	g_free(pix2path);
-	
 	gtk_box_pack_start(GTK_BOX(HButtonBox), CapImageButt, TRUE, TRUE, 2);
 	gtk_widget_show (CapImageButt);
 
@@ -644,18 +626,6 @@ int gui_attach_gtk3(int width, int height)
 	CapVideoButt = gtk_toggle_button_new_with_mnemonic (_("Cap. Video (V)"));
 	gui_set_video_capture_button_status_gtk3(get_encoder_status());
 
-	char *pix3path = g_strconcat (PACKAGE_DATA_DIR, "/pixmaps/guvcview/movie.png",NULL);
-	if (g_file_test(pix3path, G_FILE_TEST_EXISTS))
-	{
-		GtkWidget *VideoButton_Img = gtk_image_new_from_file (pix3path);
-#if GTK_VER_AT_LEAST(3,12)		
-		gtk_button_set_always_show_image(GTK_BUTTON(CapVideoButt), TRUE);
-#endif
-		gtk_button_set_image(GTK_BUTTON(CapVideoButt), VideoButton_Img);
-		gtk_button_set_image_position(GTK_BUTTON(CapVideoButt), GTK_POS_TOP);
-	}
-	g_free(pix3path);
-
 	gtk_box_pack_start(GTK_BOX(HButtonBox), CapVideoButt, TRUE, TRUE, 2);
 	gtk_widget_show (CapVideoButt);
 
@@ -665,20 +635,6 @@ int gui_attach_gtk3(int width, int height)
 	/*quit button*/
 	//GtkWidget *quitButton = gtk_button_new_from_stock(GTK_STOCK_QUIT);
 	GtkWidget *quitButton = gtk_button_new_with_mnemonic (_("_Quit"));
-
-	char* pix4path = g_strconcat (PACKAGE_DATA_DIR, "/pixmaps/guvcview/close.png", NULL);
-	if (g_file_test(pix4path,G_FILE_TEST_EXISTS))
-	{
-		GtkWidget *QButton_Img = gtk_image_new_from_file (pix4path);
-#if GTK_VER_AT_LEAST(3,12)		
-		gtk_button_set_always_show_image(GTK_BUTTON(quitButton), TRUE);
-#endif
-		gtk_button_set_image(GTK_BUTTON(quitButton), QButton_Img);
-		gtk_button_set_image_position(GTK_BUTTON(quitButton), GTK_POS_TOP);
-
-	}
-	/*must free path strings*/
-	g_free(pix4path);
 	gtk_box_pack_start(GTK_BOX(HButtonBox), quitButton, TRUE, TRUE, 2);
 	gtk_widget_show_all (quitButton);
 
@@ -711,17 +667,8 @@ int gui_attach_gtk3(int width, int height)
 	GtkWidget *tab_1 = gtk_grid_new();
 	gtk_widget_show (tab_1);
 
-    GtkWidget *tab_1_label = gtk_label_new(_("Image Controls"));
+	GtkWidget *tab_1_label = gtk_label_new(_("Image Controls"));
 	gtk_widget_show (tab_1_label);
-	/** check for files */
-	gchar *tab_1_icon_path = g_strconcat (PACKAGE_DATA_DIR,"/pixmaps/guvcview/image_controls.png",NULL);
-	/** don't test for file - use default empty image if load fails */
-	/** get icon image*/
-	GtkWidget *tab_1_icon = gtk_image_new_from_file(tab_1_icon_path);
-	gtk_widget_show (tab_1_icon);
-
-	g_free(tab_1_icon_path);
-	gtk_grid_attach (GTK_GRID(tab_1), tab_1_icon, 0, 0, 1, 1);
 	gtk_grid_attach (GTK_GRID(tab_1), tab_1_label, 1, 0, 1, 1);
 
 	gtk_notebook_append_page(GTK_NOTEBOOK(tab_box), scroll_1, tab_1);
@@ -749,15 +696,7 @@ int gui_attach_gtk3(int width, int height)
 
 		GtkWidget *tab_2_label = gtk_label_new(_("H264 Controls"));
 		gtk_widget_show (tab_2_label);
-		/** check for files */
-		gchar *tab_2_icon_path = g_strconcat (PACKAGE_DATA_DIR,"/pixmaps/guvcview/image_controls.png",NULL);
-		/** don't test for file - use default empty image if load fails */
-		/** get icon image*/
-		GtkWidget *tab_2_icon = gtk_image_new_from_file(tab_2_icon_path);
-		gtk_widget_show (tab_2_icon);
 
-		g_free(tab_2_icon_path);
-		gtk_grid_attach (GTK_GRID(tab_2), tab_2_icon, 0, 0, 1, 1);
 		gtk_grid_attach (GTK_GRID(tab_2), tab_2_label, 1, 0, 1, 1);
 
 		gtk_notebook_append_page(GTK_NOTEBOOK(tab_box), scroll_2, tab_2);
@@ -788,15 +727,6 @@ int gui_attach_gtk3(int width, int height)
 
 		GtkWidget *tab_3_label = gtk_label_new(_("Video Controls"));
 		gtk_widget_show (tab_3_label);
-		/** check for files */
-		gchar *tab_3_icon_path = g_strconcat (PACKAGE_DATA_DIR,"/pixmaps/guvcview/video_controls.png",NULL);
-		/** don't test for file - use default empty image if load fails */
-		/** get icon image*/
-		GtkWidget *tab_3_icon = gtk_image_new_from_file(tab_3_icon_path);
-		gtk_widget_show (tab_3_icon);
-
-		g_free(tab_3_icon_path);
-		gtk_grid_attach (GTK_GRID(tab_3), tab_3_icon, 0, 0, 1, 1);
 		gtk_grid_attach (GTK_GRID(tab_3), tab_3_label, 1, 0, 1, 1);
 
 		gtk_notebook_append_page(GTK_NOTEBOOK(tab_box), scroll_3, tab_3);
@@ -821,15 +751,6 @@ int gui_attach_gtk3(int width, int height)
 
 		GtkWidget *tab_4_label = gtk_label_new(_("Audio Controls"));
 		gtk_widget_show (tab_4_label);
-		/** check for files */
-		gchar *tab_4_icon_path = g_strconcat (PACKAGE_DATA_DIR,"/pixmaps/guvcview/audio_controls.png",NULL);
-		/** don't test for file - use default empty image if load fails */
-		/** get icon image*/
-		GtkWidget *tab_4_icon = gtk_image_new_from_file(tab_4_icon_path);
-		gtk_widget_show (tab_4_icon);
-
-		g_free(tab_4_icon_path);
-		gtk_grid_attach (GTK_GRID(tab_4), tab_4_icon, 0, 0, 1, 1);
 		gtk_grid_attach (GTK_GRID(tab_4), tab_4_label, 1, 0, 1, 1);
 
 		gtk_notebook_append_page(GTK_NOTEBOOK(tab_box), scroll_4, tab_4);

@@ -590,8 +590,8 @@ int mkv_write_header(mkv_context_t *mkv_ctx)
 
     segment_info = mkv_start_ebml_master(mkv_ctx, MATROSKA_ID_INFO, 0);
     mkv_put_ebml_uint(mkv_ctx, MATROSKA_ID_TIMECODESCALE, mkv_ctx->timescale);
-    mkv_put_ebml_string(mkv_ctx, MATROSKA_ID_MUXINGAPP , "Guvcview Muxer-2014.04");
-    mkv_put_ebml_string(mkv_ctx, MATROSKA_ID_WRITINGAPP, "Guvcview");
+    mkv_put_ebml_string(mkv_ctx, MATROSKA_ID_MUXINGAPP , "Guvcmjpg Muxer-2014.04");
+    mkv_put_ebml_string(mkv_ctx, MATROSKA_ID_WRITINGAPP, "Guvcmjpg");
 	
 	int32_t seg_uid[4] = {0,0,0,0};
 	/*generate seg uid - 16 byte random int*/
