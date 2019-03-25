@@ -864,7 +864,9 @@ static uint8_t *write_markers(jpeg_encoder_ctx_t *jpeg_ctx, uint8_t *output, int
 		*output++=0xc4;
 		*output++=0x01;
 		*output++=0xa2;
+#if 0
 		memmove(output, &jpeg_huffman_table, JPG_HUFFMAN_TABLE_LENGTH);/*0x01a0*/
+#endif
 		output+=JPG_HUFFMAN_TABLE_LENGTH;
 
 	}
