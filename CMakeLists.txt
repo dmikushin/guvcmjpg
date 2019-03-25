@@ -4,6 +4,10 @@ project(guvcmjpg)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
+set(CMAKE_BUILD_TYPE Release)
+
+include(CompilerFlags)
+
 find_package(SDL REQUIRED)
 find_package(LibUSB REQUIRED)
 find_package(udev REQUIRED)
