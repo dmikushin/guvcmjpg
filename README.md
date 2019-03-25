@@ -1,3 +1,13 @@
+## Building
+
+```
+./bootstrap.sh
+mkdir build
+cd build
+CFLAGS="-g -O3 -march=native -ffast-math" ../configure --prefix=/opt/guvcview
+make -j4
+```
+
 Guvcview for OPI with CMOS Camera (H3 and A64) / NanoPi M2 / M3 with USB camera
 *******************************************************************************
 
