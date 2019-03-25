@@ -29,7 +29,6 @@
 
 #include "gviewrender.h"
 #include "gview.h"
-#include "../config.h"
 
 /*random generator (HAS_GSL is set in ../config.h)*/
 #ifdef HAS_GSL

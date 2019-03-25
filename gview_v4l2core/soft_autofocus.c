@@ -40,7 +40,6 @@
 #include "dct.h"
 #include "gview.h"
 #include "core_time.h"
-#include "../config.h"
 
 #define _TH_		(80) /* default treshold = 1/80 of focus sharpness value*/
 

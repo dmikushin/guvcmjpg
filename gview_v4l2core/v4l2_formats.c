@@ -29,7 +29,7 @@
 
 #include "gview.h"
 #include "v4l2_formats.h"
-#include "../guvcview/config.h"
+#include "config.h"
 
 extern int verbosity;
 

@@ -43,7 +43,6 @@
 #include <locale.h>
 #include <libintl.h>
 
-#include "../config.h"
 #include "gviewencoder.h"
 #include "encoder.h"
 #include "stream_io.h"
@@ -57,7 +56,6 @@ static mkv_context_t *mkv_ctx = NULL;
 static avi_context_t *avi_ctx = NULL;
 
 static stream_io_t *video_stream = NULL;
-static stream_io_t *audio_stream = NULL;
 
 /*file mutex*/
 static __MUTEX_TYPE mutex = __STATIC_MUTEX_INIT;
@@ -118,74 +116,6 @@ int encoder_write_video_data(encoder_context_t *encoder_ctx)
 					enc_video_ctx->duration,
 					enc_video_ctx->pts,
 					enc_video_ctx->flags);
-			break;
-
-		default:
-
-			break;
-	}
-	__UNLOCK_MUTEX( __PMUTEX );
-
-	return (ret);
-}
-
-/*
- * mux a audio frame
- * args:
- *   encoder_ctx - pointer to encoder context
- *
- * asserts:
- *   encoder_ctx is not null;
- *
- * returns: error code
- */
-int encoder_write_audio_data(encoder_context_t *encoder_ctx)
-{
-	/*assertions*/
-	assert(encoder_ctx != NULL);
-
-	encoder_audio_context_t *enc_audio_ctx = encoder_ctx->enc_audio_ctx;
-
-	if(!enc_audio_ctx || encoder_ctx->audio_channels <= 0)
-		return -1;
-
-	if(verbosity > 3)
-		printf("ENCODER: writing %i bytes of audio data\n", enc_audio_ctx->outbuf_coded_size);
-	if(enc_audio_ctx->outbuf_coded_size <= 0)
-		return -1;
-
-	int ret =0;
-	int block_align = 1;
-
-	encoder_codec_data_t *audio_codec_data = (encoder_codec_data_t *) enc_audio_ctx->codec_data;
-
-	if(audio_codec_data)
-		block_align = audio_codec_data->codec_context->block_align;
-
-	__LOCK_MUTEX( __PMUTEX );
-	switch (encoder_ctx->muxer_id)
-	{
-		case ENCODER_MUX_AVI:
-			ret = avi_write_packet(
-					avi_ctx,
-					1,
-					enc_audio_ctx->outbuf,
-					enc_audio_ctx->outbuf_coded_size,
-					enc_audio_ctx->dts,
-					block_align,
-					enc_audio_ctx->flags);
-			break;
-
-		case ENCODER_MUX_MKV:
-		case ENCODER_MUX_WEBM:
-			ret = mkv_write_packet(
-					mkv_ctx,
-					1,
-					enc_audio_ctx->outbuf,
-					enc_audio_ctx->outbuf_coded_size,
-					enc_audio_ctx->duration,
-					enc_audio_ctx->pts,
-					enc_audio_ctx->flags);
 			break;
 
 		default:
@@ -261,36 +191,6 @@ void encoder_muxer_init(encoder_context_t *encoder_ctx, const char *filename)
 				video_stream->extra_data_size = video_codec_data->codec_context->extradata_size;
 			}
 
-			/*add audio stream*/
-			if(encoder_ctx->enc_audio_ctx != NULL &&
-				encoder_ctx->audio_channels > 0)
-			{
-				encoder_codec_data_t *audio_codec_data = (encoder_codec_data_t *) encoder_ctx->enc_audio_ctx->codec_data;
-				if(audio_codec_data)
-				{
-					int acodec_ind = get_audio_codec_list_index(audio_codec_data->codec_context->codec_id);
-					/*sample size - only used for PCM*/
-					int32_t a_bits = encoder_get_audio_bits(acodec_ind);
-					/*bit rate (compressed formats)*/
-					int32_t b_rate = encoder_get_audio_bit_rate(acodec_ind);
-
-					audio_stream = avi_add_audio_stream(
-						avi_ctx,
-						encoder_ctx->audio_channels,
-						encoder_ctx->audio_samprate,
-						a_bits,
-						b_rate,
-						audio_codec_data->codec_context->codec_id,
-						encoder_ctx->enc_audio_ctx->avi_4cc);
-
-					if(audio_codec_data->codec_context->codec_id == AV_CODEC_ID_VORBIS)
-					{
-						audio_stream->extra_data = (uint8_t *) audio_codec_data->codec_context->extradata;
-						audio_stream->extra_data_size = audio_codec_data->codec_context->extradata_size;
-					}
-				}
-			}
-
 			/* add first riff header */
 			avi_add_new_riff(avi_ctx);
 
@@ -322,36 +222,6 @@ void encoder_muxer_init(encoder_context_t *encoder_ctx, const char *filename)
 				video_stream->extra_data = (uint8_t *) encoder_get_video_mkvCodecPriv(encoder_ctx->video_codec_ind);
 				if(encoder_ctx->input_format == V4L2_PIX_FMT_H264)
 					video_stream->h264_process = 1; //we need to process NALU marker
-			}
-
-			/*add audio stream*/
-			if(encoder_ctx->enc_audio_ctx != NULL &&
-				encoder_ctx->audio_channels > 0)
-			{
-				encoder_codec_data_t *audio_codec_data = (encoder_codec_data_t *) encoder_ctx->enc_audio_ctx->codec_data;
-				if(audio_codec_data)
-				{
-					mkv_ctx->audio_frame_size = audio_codec_data->codec_context->frame_size;
-
-					/*sample size - only used for PCM*/
-					int32_t a_bits = encoder_get_audio_bits(encoder_ctx->audio_codec_ind);
-					/*bit rate (compressed formats)*/
-					int32_t b_rate = encoder_get_audio_bit_rate(encoder_ctx->audio_codec_ind);
-
-					audio_stream = mkv_add_audio_stream(
-						mkv_ctx,
-						encoder_ctx->audio_channels,
-						encoder_ctx->audio_samprate,
-						a_bits,
-						b_rate,
-						audio_codec_data->codec_context->codec_id,
-						encoder_ctx->enc_audio_ctx->avi_4cc);
-
-					audio_stream->extra_data_size = encoder_set_audio_mkvCodecPriv(encoder_ctx);
-
-					if(audio_stream->extra_data_size > 0)
-						audio_stream->extra_data = encoder_get_audio_mkvCodecPriv(encoder_ctx->audio_codec_ind);
-				}
 			}
 
 			/* write the file header */

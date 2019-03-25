@@ -26,9 +26,6 @@
 #include <sys/types.h>
 #include <stdio.h>
 
-#include "../config.h"
-
-
 #define IO_BUFFER_SIZE 32768
 
 typedef struct _io_writer_t

@@ -33,7 +33,6 @@
 #include <assert.h>
 
 #include "gview.h"
-#include "../config.h"
 
 /*h264 decoder (libavcodec)*/
 #ifdef HAVE_AVCODEC_H

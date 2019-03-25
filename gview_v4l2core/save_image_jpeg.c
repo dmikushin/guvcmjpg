@@ -33,7 +33,6 @@
 #include "save_image.h"
 #include "colorspaces.h"
 #include "dct.h"
-#include "../config.h"
 
 /*huffman table from jpeg decoder*/
 #define JPG_HUFFMAN_TABLE_LENGTH 0x01A0

@@ -27,8 +27,6 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include "../config.h"
-
 #ifdef HAVE_FFMPEG_AVCODEC_H
 #include <ffmpeg/avcodec.h>
 #else

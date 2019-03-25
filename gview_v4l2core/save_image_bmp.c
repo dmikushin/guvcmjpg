@@ -32,7 +32,6 @@
 #include "gviewv4l2core.h"
 #include "save_image.h"
 #include "colorspaces.h"
-#include "../config.h"
 
 typedef struct _bmp_file_header_t
 {

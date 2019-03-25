@@ -342,7 +342,6 @@ const char *encoder_get_audio_codec_description(int codec_ind);
 encoder_context_t *encoder_get_context(
 	int input_format,
 	int video_codec_ind,
-	int audio_codec_ind,
 	int muxer_id,
 	int video_width,
 	int video_height,

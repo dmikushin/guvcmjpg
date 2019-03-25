@@ -41,7 +41,6 @@
 #include "colorspaces.h"
 #include "jpeg_decoder.h"
 #include "gview.h"
-#include "../config.h"
 
 /*h264 decoder (libavcodec)*/
 #ifdef HAVE_FFMPEG_AVCODEC_H

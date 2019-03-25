@@ -44,17 +44,15 @@
 #include <locale.h>
 #include <libintl.h>
 
-#include "../config.h"
 #include "gviewencoder.h"
 #include "encoder.h"
 #include "stream_io.h"
 #include "gview.h"
+#include "config.h"
 
 #if LIBAVUTIL_VER_AT_LEAST(52,2)
 #include <libavutil/channel_layout.h>
 #endif
-
-int verbosity = 0;
 
 /*video buffer data mutex*/
 static __MUTEX_TYPE mutex = __STATIC_MUTEX_INIT;
@@ -143,30 +141,6 @@ static void yuv422to420p(encoder_context_t *encoder_ctx, uint8_t *inp)
 	}
 
 	prepare_video_frame(video_codec_data, encoder_ctx->enc_video_ctx->tmpbuf, encoder_ctx->video_width, encoder_ctx->video_height);
-}
-
-/*
- * check that a given sample format is supported by the encoder
- * args:
- *    codec - pointer to AVCodec
- *    sample_fmt - audio sample format
- *
- * assertions:
- *    none
- *
- * returns: 1 - sample format is supported; 0 - is not supported
- */
-static int encoder_check_audio_sample_fmt(AVCodec *codec, enum AVSampleFormat sample_fmt)
-{
-	const enum AVSampleFormat *p = codec->sample_fmts;
-
-	while (*p != AV_SAMPLE_FMT_NONE)
-	{
-		if (*p == sample_fmt)
-			return 1;
-		p++;
-	}
-	return 0;
 }
 
 /*
@@ -569,373 +543,6 @@ static encoder_video_context_t *encoder_video_init(encoder_context_t *encoder_ct
 }
 
 /*
- * audio encoder initialization
- * args:
- *   encoder_ctx - pointer to encoder context
- *
- * asserts:
- *   encoder_ctx is not null
- *
- * returns: pointer to encoder audio context (NULL on none)
- */
-static encoder_audio_context_t *encoder_audio_init(encoder_context_t *encoder_ctx)
-{
-	//assertions
-	assert(encoder_ctx != NULL);
-
-	if(encoder_ctx->audio_codec_ind < 0)
-	{
-		if(verbosity > 0)
-			printf("ENCODER: no audio codec set\n");
-
-		return NULL;
-	}
-
-	if(encoder_ctx->audio_channels <= 0)
-	{
-		if(verbosity > 0)
-			printf("ENCODER: no audio channels set\n");
-
-		return NULL;
-	}
-
-	audio_codec_t *audio_defaults = encoder_get_audio_codec_defaults(encoder_ctx->audio_codec_ind);
-
-	if(!audio_defaults)
-	{
-		fprintf(stderr, "ENCODER: defaults for audio codec index %i not found\n", encoder_ctx->audio_codec_ind);
-		return NULL;
-	}
-
-	/*alloc the encoder audio context*/
-	encoder_audio_context_t *enc_audio_ctx = calloc(1, sizeof(encoder_audio_context_t));
-	if(enc_audio_ctx == NULL)
-	{
-		fprintf(stderr, "ENCODER: FATAL memory allocation failure (encoder_audio_init): %s\n", strerror(errno));
-		exit(-1);
-	}
-
-	encoder_ctx->enc_audio_ctx = enc_audio_ctx;
-
-	enc_audio_ctx->index_of_df = -1;
-
-	enc_audio_ctx->flushed_buffers = 0;
-	enc_audio_ctx->flush_delayed_frames = 0;
-	enc_audio_ctx->flush_done = 0;
-
-	/*
-	 * alloc the audio codec data
-	 */
-	encoder_codec_data_t *audio_codec_data = calloc(1, sizeof(encoder_codec_data_t));
-
-	/*
-	 * find the audio encoder
-	 *   try specific codec (by name)
-	 */
-	audio_codec_data->codec = avcodec_find_encoder_by_name(audio_defaults->codec_name);
-	/*if it fails try any codec with matching AV_CODEC_ID*/
-	if(!audio_codec_data->codec)
-		audio_codec_data->codec = avcodec_find_encoder(audio_defaults->codec_id);
-
-	if(!audio_codec_data->codec)
-	{
-		fprintf(stderr, "ENCODER: audio codec (%i) not found\n",audio_defaults->codec_id);
-		free(audio_codec_data);
-		free(enc_audio_ctx);
-		encoder_ctx->enc_audio_ctx = NULL;
-		return NULL;
-	}
-
-#if LIBAVCODEC_VER_AT_LEAST(53,6)
-	audio_codec_data->codec_context = avcodec_alloc_context3(audio_codec_data->codec);
-	avcodec_get_context_defaults3 (audio_codec_data->codec_context, audio_codec_data->codec);
-#else
-	audio_codec_data->codec_context = avcodec_alloc_context();
-#endif
-
-	if(audio_codec_data->codec_context == NULL)
-	{
-		fprintf(stderr, "ENCODER: FATAL memory allocation failure (encoder_audio_init): %s\n", strerror(errno));
-		exit(-1);
-	}
-
-	/*defaults*/
-	enc_audio_ctx->avi_4cc = audio_defaults->avi_4cc;
-
-	audio_codec_data->codec_context->bit_rate = audio_defaults->bit_rate;
-	audio_codec_data->codec_context->profile = audio_defaults->profile; /*for AAC*/
-
-	audio_codec_data->codec_context->flags |= audio_defaults->flags;
-
-	audio_codec_data->codec_context->sample_rate = encoder_ctx->audio_samprate;
-	audio_codec_data->codec_context->channels = encoder_ctx->audio_channels;
-
-#if LIBAVCODEC_VER_AT_LEAST(53,34)
-	if(encoder_ctx->audio_channels < 2)
-		audio_codec_data->codec_context->channel_layout = AV_CH_LAYOUT_MONO;
-	else
-		audio_codec_data->codec_context->channel_layout = AV_CH_LAYOUT_STEREO;
-#endif
-
-	audio_codec_data->codec_context->cutoff = 0; /*automatic*/
-
-    audio_codec_data->codec_context->codec_id = audio_defaults->codec_id;
-
-#if !LIBAVCODEC_VER_AT_LEAST(53,0)
-#define AVMEDIA_TYPE_AUDIO CODEC_TYPE_AUDIO
-#endif
-	audio_codec_data->codec_context->codec_type = AVMEDIA_TYPE_AUDIO;
-
-	/*check if codec supports sample format*/
-	if (!encoder_check_audio_sample_fmt(audio_codec_data->codec, audio_defaults->sample_format))
-	{
-		switch(audio_defaults->sample_format)
-		{
-			case AV_SAMPLE_FMT_S16:
-				if (encoder_check_audio_sample_fmt(audio_codec_data->codec, AV_SAMPLE_FMT_S16P))
-				{
-					fprintf(stderr, "ENCODER: changing sample format (S16 -> S16P)\n");
-					audio_defaults->sample_format = AV_SAMPLE_FMT_S16P;
-				}
-				else if (encoder_check_audio_sample_fmt(audio_codec_data->codec, AV_SAMPLE_FMT_FLT))
-				{
-					fprintf(stderr, "ENCODER: changing sample format (S16 -> FLT)\n");
-					audio_defaults->sample_format = AV_SAMPLE_FMT_FLT;
-				}
-				else if (encoder_check_audio_sample_fmt(audio_codec_data->codec, AV_SAMPLE_FMT_FLTP))
-				{
-					fprintf(stderr, "ENCODER: changing sample format (S16 -> FLTP)\n");
-					audio_defaults->sample_format = AV_SAMPLE_FMT_FLTP;
-				}
-				else
-				{
-					fprintf(stderr, "ENCODER: could not open audio codec: no supported sample format\n");
-					free(audio_codec_data->codec_context);
-					free(audio_codec_data);
-					free(enc_audio_ctx);
-					encoder_ctx->enc_audio_ctx = NULL;
-					return NULL;
-				}
-				break;
-
-			case AV_SAMPLE_FMT_FLT:
-				if (encoder_check_audio_sample_fmt(audio_codec_data->codec, AV_SAMPLE_FMT_S16))
-				{
-					fprintf(stderr, "ENCODER: changing sample format (FLT -> S16)\n");
-					audio_defaults->sample_format = AV_SAMPLE_FMT_S16;
-				}
-				else if (encoder_check_audio_sample_fmt(audio_codec_data->codec, AV_SAMPLE_FMT_S16P))
-				{
-					fprintf(stderr, "ENCODER: changing sample format (FLT -> S16P)\n");
-					audio_defaults->sample_format = AV_SAMPLE_FMT_S16P;
-				}
-				else if (encoder_check_audio_sample_fmt(audio_codec_data->codec, AV_SAMPLE_FMT_FLTP))
-				{
-					fprintf(stderr, "ENCODER: changing sample format (FLT -> FLTP)\n");
-					audio_defaults->sample_format = AV_SAMPLE_FMT_FLTP;
-				}
-				else
-				{
-					fprintf(stderr, "ENCODER: could not open audio codec: no supported sample format\n");
-					free(audio_codec_data->codec_context);
-					free(audio_codec_data);
-					free(enc_audio_ctx);
-					encoder_ctx->enc_audio_ctx = NULL;
-					return NULL;
-				}
-				break;
-
-			case AV_SAMPLE_FMT_FLTP:
-				if (encoder_check_audio_sample_fmt(audio_codec_data->codec, AV_SAMPLE_FMT_S16))
-				{
-					fprintf(stderr, "ENCODER: changing sample format (FLTP -> S16)\n");
-					audio_defaults->sample_format = AV_SAMPLE_FMT_S16;
-				}
-				else if (encoder_check_audio_sample_fmt(audio_codec_data->codec, AV_SAMPLE_FMT_S16P))
-				{
-					fprintf(stderr, "ENCODER: changing sample format (FLTP -> S16P)\n");
-					audio_defaults->sample_format = AV_SAMPLE_FMT_S16P;
-				}
-				else if (encoder_check_audio_sample_fmt(audio_codec_data->codec, AV_SAMPLE_FMT_FLT))
-				{
-					fprintf(stderr, "ENCODER: changing sample format (FLTP -> FLT)\n");
-					audio_defaults->sample_format = AV_SAMPLE_FMT_FLT;
-				}
-				else
-				{
-					fprintf(stderr, "ENCODER: could not open audio codec: no supported sample format\n");
-					free(audio_codec_data->codec_context);
-					free(audio_codec_data);
-					free(enc_audio_ctx);
-					encoder_ctx->enc_audio_ctx = NULL;
-					return NULL;
-				}
-				break;
-		}
-	}
-
-	audio_codec_data->codec_context->sample_fmt = audio_defaults->sample_format;
-
-	/* open codec*/
-#if LIBAVCODEC_VER_AT_LEAST(53,6)
-	if (avcodec_open2(
-		audio_codec_data->codec_context,
-		audio_codec_data->codec, NULL) < 0)
-#else
-	if (avcodec_open(
-		audio_codec_data->codec_context,
-		audio_codec_data->codec) < 0)
-#endif
-	{
-		fprintf(stderr, "ENCODER: could not open audio codec\n");
-		free(audio_codec_data->codec_context);
-		free(audio_codec_data);
-		free(enc_audio_ctx);
-		encoder_ctx->enc_audio_ctx = NULL;
-		return NULL;
-	}
-
-	/* the codec gives us the frame size, in samples */
-	int frame_size = audio_codec_data->codec_context->frame_size;
-	if(frame_size <= 0)
-	{
-		frame_size = 1152; /*default value*/
-		audio_codec_data->codec_context->frame_size = frame_size;
-	}
-	if(verbosity > 0)
-		printf("ENCODER: Audio frame size is %d frames for selected codec\n", frame_size);
-
-	enc_audio_ctx->monotonic_pts = audio_defaults->monotonic_pts;
-
-	/*alloc outbuf*/
-	enc_audio_ctx->outbuf_size = 240000;
-	enc_audio_ctx->outbuf = calloc(enc_audio_ctx->outbuf_size, sizeof(uint8_t));
-	if(enc_audio_ctx->outbuf == NULL)
-	{
-		fprintf(stderr, "ENCODER: FATAL memory allocation failure (encoder_audio_init): %s\n", strerror(errno));
-		exit(-1);
-	}
-
-#if LIBAVCODEC_VER_AT_LEAST(53,34)
-
-#if LIBAVCODEC_VER_AT_LEAST(55,28)
-	audio_codec_data->frame = av_frame_alloc();
-#else
-	audio_codec_data->frame = avcodec_alloc_frame();
-#endif
-
-	if(audio_codec_data->frame == NULL)
-	{
-		fprintf(stderr, "ENCODER: FATAL memory allocation failure (encoder_audio_init): %s\n", strerror(errno));
-		exit(-1);
-	}
-
-#if LIBAVCODEC_VER_AT_LEAST(55,28)
-	av_frame_unref(audio_codec_data->frame);
-#else
-	avcodec_get_frame_defaults(audio_codec_data->frame);
-#endif
-
-	audio_codec_data->frame->nb_samples = frame_size;
-	audio_codec_data->frame->format = audio_defaults->sample_format;
-
-#if LIBAVCODEC_VER_AT_LEAST(54,0)
-	audio_codec_data->frame->channel_layout = audio_codec_data->codec_context->channel_layout;
-#endif
-
-#endif
-
-	/*set codec data in encoder context*/
-	enc_audio_ctx->codec_data = (void *) audio_codec_data;
-
-	return (enc_audio_ctx);
-}
-
-/*
- * get the audio encoder frame size
- * args:
- *   encoder_ctx - pointer to encoder context
- *
- * asserts:
- *   encoder_ctx is not null
- *
- * returns: audio encoder frame size
- *    or < 0 on error
- */
-int encoder_get_audio_frame_size(encoder_context_t *encoder_ctx)
-{
-	/*assertions*/
-	assert(encoder_ctx);
-	if(encoder_ctx->enc_audio_ctx == NULL)
-		return -1;
-
-	encoder_codec_data_t *audio_codec_data = (encoder_codec_data_t *) encoder_ctx->enc_audio_ctx->codec_data;
-	
-	if(audio_codec_data == NULL)
-		return -1;
-
-	return audio_codec_data->codec_context->frame_size;
-
-}
-
-/*
- * get the audio encoder input sample format
- * args:
- *   encoder_ctx - pointer to encoder context
- *
- * asserts:
- *   encoder_ctx is not null
- *
- * returns: audio encoder sample format
- */
-int encoder_get_audio_sample_fmt(encoder_context_t *encoder_ctx)
-{
-	/*assertions*/
-	assert(encoder_ctx);
-
-	/*default*/
-	int sample_type = GV_SAMPLE_TYPE_INT16;
-
-	if(encoder_ctx->enc_audio_ctx == NULL)
-		return sample_type;
-
-	encoder_codec_data_t *audio_codec_data = (encoder_codec_data_t *) encoder_ctx->enc_audio_ctx->codec_data;
-
-	if(audio_codec_data == NULL)
-		return sample_type;
-
-	switch(audio_codec_data->codec_context->sample_fmt)
-	{
-		case AV_SAMPLE_FMT_FLTP:
-			sample_type = GV_SAMPLE_TYPE_FLOATP;
-			break;
-		case AV_SAMPLE_FMT_FLT:
-			sample_type = GV_SAMPLE_TYPE_FLOAT;
-			break;
-		case AV_SAMPLE_FMT_S16P:
-			sample_type = GV_SAMPLE_TYPE_INT16P;
-			break;
-		default:
-			sample_type = GV_SAMPLE_TYPE_INT16;
-			break;
-	}
-
-	return sample_type;
-}
-
-/*
- * get audio sample format max value
- * args:
- *   none
- * 
- * returns the maximum audio sample format value
- */
-int encoder_get_max_audio_sample_fmt()
-{
-	return AV_SAMPLE_FMT_NB-1;
-}
-
-/*
  * get an estimated write loop sleep time to avoid a ring buffer overrun
  * args:
  *   mode: scheduler mode:
@@ -1024,8 +631,6 @@ void encoder_init()
 	avcodec_register_all();
 
 	valid_video_codecs = encoder_set_valid_video_codec_list ();
-	valid_audio_codecs = encoder_set_valid_audio_codec_list ();
-
 }
 
 /*
@@ -1044,26 +649,10 @@ int encoder_get_valid_video_codecs()
 }
 
 /*
- * get valid audio codec count
- * args:
- *   none
- *
- * asserts:
- *    none
- *
- * returns: number of valid audio codecs
- */
-int encoder_get_valid_audio_codecs()
-{
-	return valid_audio_codecs;
-}
-
-/*
  * initialize and get the encoder context
  * args:
  *   input_format - input v4l2 format (yuyv for encoding)
  *   video_codec_ind - video codec list index
- *   audio_codec_ind - audio codec list index
  *   muxer_id - file muxer:
  *        ENCODER_MUX_MKV; ENCODER_MUX_WEBM; ENCODER_MUX_AVI
  *   video_width - video frame width
@@ -1081,7 +670,6 @@ int encoder_get_valid_audio_codecs()
 encoder_context_t *encoder_get_context(
 	int input_format,
 	int video_codec_ind,
-	int audio_codec_ind,
 	int muxer_id,
 	int video_width,
 	int video_height,
@@ -1101,7 +689,6 @@ encoder_context_t *encoder_get_context(
 	encoder_ctx->input_format = input_format;
 
 	encoder_ctx->video_codec_ind = video_codec_ind;
-	encoder_ctx->audio_codec_ind = audio_codec_ind;
 
 	encoder_ctx->muxer_id = muxer_id;
 
@@ -1117,11 +704,7 @@ encoder_context_t *encoder_get_context(
 	/******************* video **********************/
 	encoder_video_init(encoder_ctx);
 
-	/******************* audio **********************/
-	encoder_audio_init(encoder_ctx);
-
-	if(!encoder_ctx->enc_audio_ctx)
-		encoder_ctx->audio_channels = 0; /*no audio*/
+	encoder_ctx->audio_channels = 0; /*no audio*/
 
 	/****************** ring buffer *****************/
 	encoder_alloc_video_ring_buffer(
@@ -1320,60 +903,6 @@ int encoder_flush_video_buffer(encoder_context_t *encoder_ctx)
 }
 
 /*
- * process all delayed audio frames from libavcodec
-  * args:
- *   encoder_ctx - pointer to encoder context
- *
- * asserts:
- *   encoder_ctx is not null
- *
- * returns: error code
- */
-int encoder_flush_audio_buffer(encoder_context_t *encoder_ctx)
-{
-	/*assertions*/
-	assert(encoder_ctx != NULL);
-
-	/*flush libav*/
-	int flushed_frame_counter = 0;
-	encoder_ctx->enc_audio_ctx->flush_delayed_frames  = 1;
-	while(!encoder_ctx->enc_audio_ctx->flush_done &&
-		flushed_frame_counter <= encoder_ctx->enc_audio_ctx->delayed_frames)
-	{
-		encoder_encode_audio(encoder_ctx, NULL);
-		encoder_write_audio_data(encoder_ctx);
-		flushed_frame_counter++;
-	}
-}
-
-/*
- * process audio frame (encode and mux to file)
- * args:
- *   encoder_ctx - pointer to encoder context
- *   data - audio buffer
- *
- * asserts:
- *   encoder_ctx is not null
- *
- * returns: error code
- */
-int encoder_process_audio_buffer(encoder_context_t *encoder_ctx, void *data)
-{
-	/*assertions*/
-	assert(encoder_ctx != NULL);
-
-	if(encoder_ctx->enc_audio_ctx == NULL ||
-		encoder_ctx->audio_channels <= 0)
-		return -1;
-
-	encoder_encode_audio(encoder_ctx, data);
-
-	int ret = encoder_write_audio_data(encoder_ctx);
-
-	return ret;
-}
-
-/*
  * encode video frame
  * args:
  *   encoder_ctx - pointer to encoder context
@@ -1434,7 +963,7 @@ int encoder_encode_video(encoder_context_t *encoder_ctx, void *input_frame)
 		/*convert default yuyv to y420p (libav input format)*/		
 		switch(video_codec_data->codec_context->pix_fmt)
 		{
-			case PIX_FMT_YUVJ420P:
+			case AV_PIX_FMT_YUVJ420P:
 				yuv422to420p(encoder_ctx, input_frame);
 				break;
 			default:
@@ -1569,208 +1098,6 @@ int encoder_encode_video(encoder_context_t *encoder_ctx, void *input_frame)
 }
 
 /*
- * encode audio
- * args:
- *   encoder_ctx - pointer to encoder context
- *   audio_data - pointer to audio pcm data
- *
- * asserts:
- *   encoder_ctx is not null
- *
- * returns: encoded buffer size
- */
-int encoder_encode_audio(encoder_context_t *encoder_ctx, void *audio_data)
-{
-	/*assertions*/
-	assert(encoder_ctx != NULL);
-
-	encoder_audio_context_t *enc_audio_ctx = encoder_ctx->enc_audio_ctx;
-
-	int outsize = 0;
-
-	if(!enc_audio_ctx)
-	{
-		if(verbosity > 1)
-			printf("ENCODER: audio encoder not set\n");
-
-		return outsize;
-	}
-	
-	encoder_codec_data_t *audio_codec_data = (encoder_codec_data_t *) enc_audio_ctx->codec_data;
-
-	if(enc_audio_ctx->flush_delayed_frames)
-	{
-		//pkt.size = 0;
-		if(!enc_audio_ctx->flushed_buffers)
-		{
-			if(audio_codec_data)
-				avcodec_flush_buffers(audio_codec_data->codec_context);
-			enc_audio_ctx->flushed_buffers = 1;
-		}
- 	}
-
-	/* encode the audio */
-#if LIBAVCODEC_VER_AT_LEAST(53,34)
-	AVPacket pkt;
-	int got_packet;
-	av_init_packet(&pkt);
-	pkt.data = enc_audio_ctx->outbuf;
-	pkt.size = enc_audio_ctx->outbuf_size;
-
-	int ret = 0;
-
-	if(!enc_audio_ctx->flush_delayed_frames)
-	{
-		/*number of samples per channel*/
-		audio_codec_data->frame->nb_samples  = audio_codec_data->codec_context->frame_size;
-
-#if LIBAVUTIL_VER_AT_LEAST(51,23)
-		int align = 0;
-#else
-		int align = 1; /*otherwise it causes a SIGFPE*/
-#endif
-		
-		int buffer_size = av_samples_get_buffer_size(
-			NULL,
-			audio_codec_data->codec_context->channels,
-			audio_codec_data->frame->nb_samples,
-			audio_codec_data->codec_context->sample_fmt,
-			align);
-		
-		if(buffer_size <= 0)
-		{
-			fprintf(stderr, "ENCODER: (encoder_encode_audio) av_samples_get_buffer_size error (%d): chan(%d) nb_samp(%d) samp_fmt(%d)\n", 
-				buffer_size, 
-				audio_codec_data->codec_context->channels, 
-				audio_codec_data->frame->nb_samples, 
-				audio_codec_data->codec_context->sample_fmt);
-			
-			return outsize;
-		}
-		
-		/*set the data pointers in frame*/
-		ret = avcodec_fill_audio_frame(
-			audio_codec_data->frame,
-			audio_codec_data->codec_context->channels,
-			audio_codec_data->codec_context->sample_fmt,
-			(const uint8_t *) audio_data,
-			buffer_size,
-			align);
-		
-		if(ret < 0)
-		{
-			fprintf(stderr, "ENCODER: (encoder_encode_audio) avcodec_fill_audio_frame error (%d): chan(%d) nb_samp(%d) samp_fmt(%d) buff(%d bytes)\n", 
-				ret, 
-				audio_codec_data->codec_context->channels, 
-				audio_codec_data->frame->nb_samples, 
-				audio_codec_data->codec_context->sample_fmt,
-				buffer_size);
-			
-			return outsize;
-		}
-
-		if(!enc_audio_ctx->monotonic_pts) /*generate a real pts based on the frame timestamp*/
-			audio_codec_data->frame->pts += ((enc_audio_ctx->pts - last_audio_pts)/1000) * 90;
-		else  if (audio_codec_data->codec_context->time_base.den > 0) /*generate a true monotonic pts based on the codec fps*/
-			audio_codec_data->frame->pts +=
-				(audio_codec_data->codec_context->time_base.num*1000/audio_codec_data->codec_context->time_base.den) * 90;
-		else
-		{
-			fprintf(stderr, "ENCODER: (encoder_encode_audio) couldn't generate a monotonic ts: time_base.den(%d)\n",
-				 audio_codec_data->codec_context->time_base.den);
-		}
-
-		ret = avcodec_encode_audio2(
-				audio_codec_data->codec_context,
-				&pkt,
-				audio_codec_data->frame,
-				&got_packet);
-	}
-	else
-	{
-		ret = avcodec_encode_audio2(
-			audio_codec_data->codec_context,
-			&pkt,
-			NULL, /*NULL flushes the encoder buffers*/
-			&got_packet);
-	}
-
-	if (!ret && got_packet && audio_codec_data->codec_context->coded_frame)
-    {
-    	audio_codec_data->codec_context->coded_frame->pts = pkt.pts;
-        audio_codec_data->codec_context->coded_frame->key_frame = !!(pkt.flags & AV_PKT_FLAG_KEY);
-    }
-
-	enc_audio_ctx->dts = pkt.dts;
-	enc_audio_ctx->flags = pkt.flags;
-	enc_audio_ctx->duration = pkt.duration;
-
-	/* free any side data since we cannot return it */
-	//ff_packet_free_side_data(&pkt);
-	if (audio_codec_data->frame &&
-		audio_codec_data->frame->extended_data != audio_codec_data->frame->data)
-		av_freep(audio_codec_data->frame->extended_data);
-
-	outsize = pkt.size;
-#else
-	if(!enc_video_ctx->flush_delayed_frames)
-		outsize = avcodec_encode_audio(
-			audio_codec_data->codec_context,
-			enc_audio_ctx->outbuf,
-			enc_audio_ctx->outbuf_size,
-			audio_data);
-	else
-		outsize = avcodec_encode_audio(
-			audio_codec_data->codec_context,
-			enc_audio_ctx->outbuf,
-			enc_audio_ctx->outbuf_size,
-			NULL);
-
-	enc_audio_ctx->dts = AV_NOPTS_VALUE;
-	enc_audio_ctx->flags = 0;
-	if (audio_codec_data->codec_context->coded_frame->key_frame)
-		enc_audio_ctx->flags |= AV_PKT_FLAG_KEY;
-
-	enc_audio_ctx->duration = enc_audio_ctx->pts - last_audio_pts;
-#endif
-
-	last_audio_pts = enc_audio_ctx->pts;
-
-	if(enc_audio_ctx->flush_delayed_frames && outsize == 0)
-    	enc_audio_ctx->flush_done = 1;
-	else if(outsize == 0 && enc_audio_ctx->index_of_df < 0)
-	{
-	    enc_audio_ctx->delayed_pts[enc_audio_ctx->delayed_frames] = enc_audio_ctx->pts;
-	    enc_audio_ctx->delayed_frames++;
-	    if(enc_audio_ctx->delayed_frames > MAX_DELAYED_FRAMES)
-	    {
-	    	enc_audio_ctx->delayed_frames = MAX_DELAYED_FRAMES;
-	    	printf("ENCODER: Maximum of %i delayed audio frames reached...\n", MAX_DELAYED_FRAMES);
-	    }
-	}
-	else
-	{
-		if(enc_audio_ctx->delayed_frames > 0)
-		{
-			if(enc_audio_ctx->index_of_df < 0)
-			{
-				enc_audio_ctx->index_of_df = 0;
-				printf("ENCODER: audio codec is using %i delayed audio frames\n", enc_audio_ctx->delayed_frames);
-			}
-			int64_t my_pts = enc_audio_ctx->pts;
-			enc_audio_ctx->pts = enc_audio_ctx->delayed_pts[enc_audio_ctx->index_of_df];
-			enc_audio_ctx->delayed_pts[enc_audio_ctx->index_of_df] = my_pts;
-			enc_audio_ctx->index_of_df++;
-			if(enc_audio_ctx->index_of_df >= enc_audio_ctx->delayed_frames)
-				enc_audio_ctx->index_of_df = 0;
-		}
-	}
-
-	enc_audio_ctx->outbuf_coded_size = outsize;
-	return (outsize);
-}
-
-/*
  * close and clean encoder context
  * args:
  *   encoder_ctx - pointer to encoder context data
@@ -1788,9 +1115,7 @@ void encoder_close(encoder_context_t *encoder_ctx)
 		return;
 
 	encoder_video_context_t *enc_video_ctx = encoder_ctx->enc_video_ctx;
-	encoder_audio_context_t *enc_audio_ctx = encoder_ctx->enc_audio_ctx;
 	encoder_codec_data_t *video_codec_data = NULL;
-	encoder_codec_data_t *audio_codec_data = NULL;
 
 	if(encoder_ctx->h264_pps)
 		free(encoder_ctx->h264_pps);
@@ -1837,38 +1162,6 @@ void encoder_close(encoder_context_t *encoder_ctx)
 			free(enc_video_ctx->outbuf);
 
 		free(enc_video_ctx);
-	}
-
-	/*close audio codec*/
-	if(enc_audio_ctx)
-	{
-		audio_codec_data = (encoder_codec_data_t *) enc_audio_ctx->codec_data;
-		if(audio_codec_data)
-		{
-			avcodec_flush_buffers(audio_codec_data->codec_context);
-
-			avcodec_close(audio_codec_data->codec_context);
-			free(audio_codec_data->codec_context);
-
-			if(audio_codec_data->frame)
-#if LIBAVCODEC_VER_AT_LEAST(55,28)
-				av_frame_free(&audio_codec_data->frame);
-#else
-	#if LIBAVCODEC_VER_AT_LEAST(54,28)
-				avcodec_free_frame(&audio_codec_data->frame);
-	#else
-				av_freep(&audio_codec_data->frame);
-	#endif
-#endif
-			free(audio_codec_data);
-		}
-
-		if(enc_audio_ctx->priv_data)
-			free(enc_audio_ctx->priv_data);
-		if(enc_audio_ctx->outbuf)
-			free(enc_audio_ctx->outbuf);
-
-		free(enc_audio_ctx);
 	}
 
 	free(encoder_ctx);

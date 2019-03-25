@@ -32,7 +32,6 @@
 #include <locale.h>
 #include <libintl.h>
 
-#include "../config.h"
 #include "gviewencoder.h"
 #include "encoder.h"
 #include "stream_io.h"

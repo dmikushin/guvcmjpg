@@ -37,7 +37,6 @@
 #include <locale.h>
 #include <libintl.h>
 
-#include "../config.h"
 /*random generator (HAS_GSL is set in ../config.h)*/
 #ifdef HAS_GSL
 	#include <gsl/gsl_rng.h>
@@ -510,16 +509,6 @@ static int mkv_write_tracks(mkv_context_t *mkv_ctx)
 			}
 			mkv_codec_name = (char *) encoder_get_video_mkv_codec(codec_index);
 		}
-		else
-		{
-			int codec_index = get_audio_codec_list_index(stream->codec_id);
-			if(codec_index < 0)
-			{
-				fprintf(stderr, "ENCODER: (matroska) bad audio codec index for id:0x%x\n",stream->codec_id);
-				return -1;
-			}
-			mkv_codec_name = (char *) encoder_get_audio_mkv_codec(codec_index);
-		}
 
         mkv_put_ebml_string(mkv_ctx, MATROSKA_ID_CODECID, mkv_codec_name);
 
@@ -545,22 +534,8 @@ static int mkv_write_tracks(mkv_context_t *mkv_ctx)
                 mkv_end_ebml_master(mkv_ctx, subinfo);
                 break;
 
-            case STREAM_TYPE_AUDIO:
-                mkv_put_ebml_uint(mkv_ctx, MATROSKA_ID_TRACKTYPE, MATROSKA_TRACK_TYPE_AUDIO);
-
-
-                //no mkv-specific ID, use ACM mode
-                //put_ebml_string(pb, MATROSKA_ID_CODECID, "A_MS/ACM");
-
-                subinfo = mkv_start_ebml_master(mkv_ctx, MATROSKA_ID_TRACKAUDIO, 0);
-                mkv_put_ebml_uint(mkv_ctx, MATROSKA_ID_AUDIOCHANNELS, stream->a_chans);
-                mkv_put_ebml_float(mkv_ctx, MATROSKA_ID_AUDIOSAMPLINGFREQ, stream->a_rate);
-                mkv_put_ebml_uint(mkv_ctx, MATROSKA_ID_AUDIOBITDEPTH, stream->a_bits);
-                mkv_end_ebml_master(mkv_ctx, subinfo);
-                break;
-
             default:
-               fprintf(stderr, "ENCODER: (matroska) Only audio and video are supported by the Matroska muxer.\n");
+               fprintf(stderr, "ENCODER: (matroska) Only video is supported by the Matroska muxer.\n");
                break;
         }
 

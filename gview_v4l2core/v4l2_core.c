@@ -54,8 +54,7 @@
 #include "v4l2_formats.h"
 #include "v4l2_controls.h"
 #include "v4l2_devices.h"
-#include "../config.h"
-#include "../guvcview/config.h"
+#include "config.h"
 
 #ifndef CLEAR
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
@@ -67,9 +66,6 @@
 /*video device data mutex*/
 static __MUTEX_TYPE mutex = __STATIC_MUTEX_INIT;
 #define __PMUTEX &mutex
-
-/*verbosity (global scope)*/
-int verbosity = 0;
 
 /*requested format data*/
 static int my_pixelformat = 0;
@@ -1725,14 +1721,14 @@ static void clean_v4l2_dev()
 int v4l2core_init_dev(const char *device)
 {
 	assert(device != NULL);
-
+#if 0
 	/*localization*/
 	char* lc_all = setlocale (LC_ALL, "");
 	char* lc_dir = bindtextdomain (GETTEXT_PACKAGE_V4L2CORE, PACKAGE_LOCALE_DIR);
 	bind_textdomain_codeset (GETTEXT_PACKAGE_V4L2CORE, "UTF-8");
 	if (verbosity > 1) printf("V4L2_CORE: language catalog=> dir:%s type:%s cat:%s.mo\n",
 		lc_dir, lc_all, GETTEXT_PACKAGE_V4L2CORE);
-
+#endif
 	/*alloc the device data*/
 	vd = calloc(1, sizeof(v4l2_dev_t));
 

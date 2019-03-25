@@ -36,7 +36,6 @@
 #include "frame_decoder.h"
 #include "jpeg_decoder.h"
 #include "colorspaces.h"
-#include "../config.h"
 
 extern int verbosity;
 

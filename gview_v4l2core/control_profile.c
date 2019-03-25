@@ -32,7 +32,6 @@
 #include "gviewv4l2core.h"
 #include "v4l2_controls.h"
 #include "control_profile.h"
-#include "../config.h"
 
 extern int verbosity;
 
@@ -69,7 +68,9 @@ int save_control_profile(v4l2_dev_t *vd, const char *filename)
 
 			/*write header*/
 			fprintf(fp, "#V4L2/CTRL/0.0.2\n");
+#if 0
 			fprintf(fp, "APP{\"%s\"}\n", PACKAGE_STRING);
+#endif
             /*write control data*/
 			fprintf(fp, "# control data\n");
 			for( ; current != NULL; current = current->next)

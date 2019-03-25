@@ -27,7 +27,6 @@
 #include <assert.h>
 
 #include "gview.h"
-#include "../config.h"
 
 extern int verbosity;
 
