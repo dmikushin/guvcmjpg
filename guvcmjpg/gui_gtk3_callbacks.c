@@ -115,8 +115,6 @@ void camera_button_menu_changed (GtkWidget *item, void *data)
 void control_defaults_clicked (GtkWidget *item, void *data)
 {
     v4l2core_set_control_defaults();
-
-    gui_gtk3_update_controls_state();
 }
 
 /*
@@ -244,7 +242,6 @@ void controls_profile_clicked (GtkWidget *item, void *data)
 		else
 		{
 			v4l2core_load_control_profile(filename);
-			gui_gtk3_update_controls_state();
 		}
 
 		char *basename = get_file_basename(filename);
@@ -560,8 +557,6 @@ void button_clicked (GtkButton * Button, void *data)
 
     if(v4l2core_set_control_value_by_id(id))
 		fprintf(stderr, "GUVCVIEW: error setting button value\n");
-
-	gui_gtk3_update_controls_state();
 }
 
 #ifdef V4L2_CTRL_TYPE_STRING
@@ -755,8 +750,6 @@ void combo_changed (GtkComboBox * combo, void *data)
 
 	if(v4l2core_set_control_value_by_id(id))
 		fprintf(stderr, "GUVCVIEW: error setting menu value\n");
-
-	gui_gtk3_update_controls_state();
 }
 
 /*
@@ -815,8 +808,6 @@ void check_changed (GtkToggleButton *toggle, void *data)
          */
         v4l2core_request_framerate_update ();
     }
-
-    gui_gtk3_update_controls_state();
 }
 
 /*

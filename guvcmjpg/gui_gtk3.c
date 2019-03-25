@@ -609,8 +609,6 @@ int gui_attach_gtk3(int width, int height)
 
 	gtk_container_add(GTK_CONTAINER(scroll_1), viewport);
 
-	gui_attach_gtk3_v4l2ctrls(viewport);
-
 	GtkWidget *tab_1 = gtk_grid_new();
 	gtk_widget_show (tab_1);
 
@@ -619,89 +617,6 @@ int gui_attach_gtk3(int width, int height)
 	gtk_grid_attach (GTK_GRID(tab_1), tab_1_label, 1, 0, 1, 1);
 
 	gtk_notebook_append_page(GTK_NOTEBOOK(tab_box), scroll_1, tab_1);
-
-	/*----------------------------H264 Controls Tab --------------------------*/
-	if(v4l2core_get_h264_unit_id() > 0)
-	{
-		GtkWidget *scroll_2 = gtk_scrolled_window_new(NULL,NULL);
-		gtk_scrolled_window_set_placement(GTK_SCROLLED_WINDOW(scroll_2), GTK_CORNER_TOP_LEFT);
-		gtk_widget_show(scroll_2);
-
-		/*
-		 * viewport is only needed for gtk < 3.8
-		 * for 3.8 and above controls tab can be directly added to scroll1
-		 */
-		GtkWidget* viewport2 = gtk_viewport_new(NULL,NULL);
-		gtk_widget_show(viewport2);
-
-		gtk_container_add(GTK_CONTAINER(scroll_2), viewport2);
-
-		gui_attach_gtk3_h264ctrls(viewport2);
-
-		GtkWidget *tab_2 = gtk_grid_new();
-		gtk_widget_show (tab_2);
-
-		GtkWidget *tab_2_label = gtk_label_new(_("H264 Controls"));
-		gtk_widget_show (tab_2_label);
-
-		gtk_grid_attach (GTK_GRID(tab_2), tab_2_label, 1, 0, 1, 1);
-
-		gtk_notebook_append_page(GTK_NOTEBOOK(tab_box), scroll_2, tab_2);
-	}
-
-	/*exclude video and audio tabs if we are in control panel mode*/
-	if(!is_control_panel)
-	{
-		/*----------------------- Video controls Tab ------------------------------*/
-
-		GtkWidget *scroll_3 = gtk_scrolled_window_new(NULL,NULL);
-		gtk_scrolled_window_set_placement(GTK_SCROLLED_WINDOW(scroll_3), GTK_CORNER_TOP_LEFT);
-		gtk_widget_show(scroll_3);
-
-		/*
-		 * viewport is only needed for gtk < 3.8
-		 * for 3.8 and above controls tab can be directly added to scroll1
-		 */
-		GtkWidget* viewport3 = gtk_viewport_new(NULL,NULL);
-		gtk_widget_show(viewport3);
-
-		gtk_container_add(GTK_CONTAINER(scroll_3), viewport3);
-
-		gui_attach_gtk3_videoctrls(viewport3);
-
-		GtkWidget *tab_3 = gtk_grid_new();
-		gtk_widget_show (tab_3);
-
-		GtkWidget *tab_3_label = gtk_label_new(_("Video Controls"));
-		gtk_widget_show (tab_3_label);
-		gtk_grid_attach (GTK_GRID(tab_3), tab_3_label, 1, 0, 1, 1);
-
-		gtk_notebook_append_page(GTK_NOTEBOOK(tab_box), scroll_3, tab_3);
-
-		/*----------------------- Audio controls Tab ------------------------------*/
-
-		GtkWidget *scroll_4 = gtk_scrolled_window_new(NULL,NULL);
-		gtk_scrolled_window_set_placement(GTK_SCROLLED_WINDOW(scroll_4), GTK_CORNER_TOP_LEFT);
-		gtk_widget_show(scroll_4);
-
-		/*
-		 * viewport is only needed for gtk < 3.8
-		 * for 3.8 and above controls tab can be directly added to scroll1
-		 */
-		GtkWidget* viewport4 = gtk_viewport_new(NULL,NULL);
-		gtk_widget_show(viewport4);
-
-		gtk_container_add(GTK_CONTAINER(scroll_4), viewport4);
-
-		GtkWidget *tab_4 = gtk_grid_new();
-		gtk_widget_show (tab_4);
-
-		GtkWidget *tab_4_label = gtk_label_new(_("Audio Controls"));
-		gtk_widget_show (tab_4_label);
-		gtk_grid_attach (GTK_GRID(tab_4), tab_4_label, 1, 0, 1, 1);
-
-		gtk_notebook_append_page(GTK_NOTEBOOK(tab_box), scroll_4, tab_4);
-	}
 
 	/* Attach the notebook (tabs) */
 	gtk_box_pack_start(GTK_BOX(maintable), tab_box, TRUE, TRUE, 2);
@@ -766,8 +681,6 @@ void gui_close_gtk3()
 {
 	if(gtk_main_called)
 		gtk_main_quit();
-
-	gui_clean_gtk3_control_widgets_list();
 
 	gtk_main_called = 0;
 }
