@@ -311,56 +311,6 @@ void render_sdl1_dispatch_events()
 	/* Poll for events */
 	while( SDL_PollEvent(&event) )
 	{
-		if(event.type==SDL_KEYDOWN)
-		{
-			switch( event.key.keysym.sym )
-            {
-				/* Keyboard event */
-                /* Pass the event data onto PrintKeyInfo() */
-                case SDLK_ESCAPE:
-					render_call_event_callback(EV_QUIT);
-					break;
-					
-				case SDLK_UP:
-					render_call_event_callback(EV_KEY_UP);
-					break;
-
-				case SDLK_DOWN:
-					render_call_event_callback(EV_KEY_DOWN);
-					break;
-
-				case SDLK_RIGHT:
-					render_call_event_callback(EV_KEY_RIGHT);
-					break;
-
-				case SDLK_LEFT:
-					render_call_event_callback(EV_KEY_LEFT);
-					break;
-
-				case SDLK_SPACE:
-					render_call_event_callback(EV_KEY_SPACE);
-					break;
-
-				case SDLK_i:
-					render_call_event_callback(EV_KEY_I);
-					break;
-
-				case SDLK_v:
-					render_call_event_callback(EV_KEY_V);
-					break;
-
-				default:
-					break;
-
-			}
-
-			switch( event.key.keysym.scancode )
-			{
-				case 220: /*webcam button*/
-					break;
-			}
-		}
-
 		if(event.type==SDL_VIDEORESIZE)
 		{
 			pscreen =

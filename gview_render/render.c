@@ -43,12 +43,7 @@
 
 #include "gviewrender.h"
 #include "config.h"
-
-#if ENABLE_SDL2
-	#include "render_sdl2.h"
-#else
-	#include "render_sdl1.h"
-#endif
+#include "render_sdl1.h"
 
 static int render_api = RENDER_SDL;
 
@@ -60,49 +55,8 @@ static render_events_t render_events_list[] =
 	{
 		.id = EV_QUIT,
 		.callback = NULL,
-		.data = NULL
-
+		.data = NULL,
 	},
-	{
-		.id = EV_KEY_UP,
-		.callback = NULL,
-		.data = NULL
-	},
-	{
-		.id = EV_KEY_DOWN,
-		.callback = NULL,
-		.data = NULL
-	},
-	{
-		.id = EV_KEY_LEFT,
-		.callback = NULL,
-		.data = NULL
-	},
-	{
-		.id = EV_KEY_RIGHT,
-		.callback = NULL,
-		.data = NULL
-	},
-	{
-		.id = EV_KEY_SPACE,
-		.callback = NULL,
-		.data = NULL
-	},
-	{
-		.id = EV_KEY_I,
-		.callback = NULL,
-		.data = NULL
-	},
-	{
-		.id = EV_KEY_V,
-		.callback = NULL,
-		.data = NULL
-	},
-	{
-		.id = -1, /*end of list*/
-		.callback = NULL,
-		.data = NULL
-	}
 };
 
 /*
@@ -200,20 +154,16 @@ int render_init(int render, int width, int height, int flags)
  * render a frame
  * args:
  *   frame - pointer to frame data (yuyv format)
- *   mask - fx filter mask (or'ed)
  *
  * asserts:
  *   frame is not null
  *
  * returns: error code
  */
-int render_frame(uint8_t *frame, uint32_t mask)
+int render_frame(uint8_t *frame)
 {
 	/*asserts*/
 	assert(frame != NULL);
-
-	/*apply fx filters to frame*/
-	render_fx_apply(frame, my_width, my_height, mask);
 
 	int ret = 0;
 	switch(render_api)
@@ -234,6 +184,81 @@ int render_frame(uint8_t *frame, uint32_t mask)
 	}
 
 	return ret;
+}
+
+/*
+ * set event callback
+ * args:
+ *    id - event id
+ *    callback_function - pointer to callback function
+ *    data - pointer to user data (passed to callback)
+ *
+ * asserts:
+ *    none
+ *
+ * returns: error code
+ */
+int render_set_event_callback(int id, render_event_callback callback_function, void *data)
+{
+	int index = render_get_event_index(id);
+	if(index < 0)
+		return index;
+
+	render_events_list[index].callback = callback_function;
+	render_events_list[index].data = data;
+
+	return 0;
+}
+
+/*
+ * call the event callback for event id
+ * args:
+ *    id - event id
+ *
+ * asserts:
+ *    none
+ *
+ * returns: error code
+ */
+int render_call_event_callback(int id)
+{
+	int index = render_get_event_index(id);
+
+	if(verbosity > 1)
+		printf("RENDER: event %i -> callback %i\n", id, index);
+               
+	if(index < 0)
+		return index;
+
+	if(render_events_list[index].callback == NULL)
+		return -1;
+
+	int ret = render_events_list[index].callback(render_events_list[index].data);
+
+	return ret;
+}
+
+/*
+ * get event index on render_events_list
+ * args:
+ *    id - event id
+ *
+ * asserts:
+ *    none
+ *
+ * returns: event index or -1 on error
+ */
+int render_get_event_index(int id)
+{
+	int i = 0;
+	while(render_events_list[i].id >= 0)
+	{
+		if(render_events_list[i].id == id)
+			return i;
+
+		i++;
+	}
+	return -1;
 }
 
 /*
@@ -291,85 +316,7 @@ void render_close()
 			break;
 	}
 
-	/*clean fx data*/
-	render_clean_fx();
-
 	my_width = 0;
 	my_height = 0;
-}
-
-/*
- * get event index on render_events_list
- * args:
- *    id - event id
- *
- * asserts:
- *    none
- *
- * returns: event index or -1 on error
- */
-int render_get_event_index(int id)
-{
-	int i = 0;
-	while(render_events_list[i].id >= 0)
-	{
-		if(render_events_list[i].id == id)
-			return i;
-
-		i++;
-	}
-	return -1;
-}
-
-/*
- * set event callback
- * args:
- *    id - event id
- *    callback_function - pointer to callback function
- *    data - pointer to user data (passed to callback)
- *
- * asserts:
- *    none
- *
- * returns: error code
- */
-int render_set_event_callback(int id, render_event_callback callback_function, void *data)
-{
-	int index = render_get_event_index(id);
-	if(index < 0)
-		return index;
-
-	render_events_list[index].callback = callback_function;
-	render_events_list[index].data = data;
-
-	return 0;
-}
-
-/*
- * call the event callback for event id
- * args:
- *    id - event id
- *
- * asserts:
- *    none
- *
- * returns: error code
- */
-int render_call_event_callback(int id)
-{
-	int index = render_get_event_index(id);
-
-	if(verbosity > 1)
-		printf("RENDER: event %i -> callback %i\n", id, index);
-		
-	if(index < 0)
-		return index;
-
-	if(render_events_list[index].callback == NULL)
-		return -1;
-
-	int ret = render_events_list[index].callback(render_events_list[index].data);
-
-	return ret;
 }
 

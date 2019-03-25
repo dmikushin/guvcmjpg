@@ -60,8 +60,6 @@ static int restart = 0; /*restart flag*/
 
 static char render_caption[64]; /*render window caption*/
 
-static uint32_t my_render_mask = REND_FX_YUV_NOFILT; /*render fx filter mask*/
-
 /*continues focus*/
 static int do_soft_autofocus = 0;
 /*single time focus (can happen during continues focus)*/
@@ -82,39 +80,6 @@ static char status_message[80];
 void set_render_flag(int value)
 {
 	render = value;
-}
-
-/*
- * get render fx mask
- * args:
- *    none
- *
- * asserts:
- *    none
- *
- * returns: render fx mask
- */
-uint32_t get_render_fx_mask()
-{
-	return my_render_mask;
-}
-
-/*
- * set render fx mask
- * args:
- *    new_mask - fx mask value
- *
- * asserts:
- *    none
- *
- * returns: none
- */
-void set_render_fx_mask(uint32_t new_mask)
-{
-	my_render_mask = new_mask;
-	/* update config */
-	config_t *my_config = config_get();
-	my_config->video_fx = my_render_mask;
 }
 
 /*
@@ -533,15 +498,7 @@ void *capture_loop(void *data)
 	if(render_init(render, v4l2core_get_frame_width(), v4l2core_get_frame_height(), render_flags) < 0)
 		render = RENDER_NONE;
 	else
-	{
 		render_set_event_callback(EV_QUIT, &quit_callback, NULL);
-		render_set_event_callback(EV_KEY_V, &key_V_callback, NULL);
-		render_set_event_callback(EV_KEY_I, &key_I_callback, NULL);
-		render_set_event_callback(EV_KEY_UP, &key_UP_callback, NULL);
-		render_set_event_callback(EV_KEY_DOWN, &key_DOWN_callback, NULL);
-		render_set_event_callback(EV_KEY_LEFT, &key_LEFT_callback, NULL);
-		render_set_event_callback(EV_KEY_RIGHT, &key_RIGHT_callback, NULL);
-	}
 
 	/*add a photo capture timer*/
 	if(my_options->photo_timer > 0)
@@ -595,16 +552,7 @@ void *capture_loop(void *data)
 			if(render_init(render, v4l2core_get_frame_width(), v4l2core_get_frame_height(), render_flags) < 0)
 				render = RENDER_NONE;
 			else
-			{
 				render_set_event_callback(EV_QUIT, &quit_callback, NULL);
-				render_set_event_callback(EV_KEY_V, &key_V_callback, NULL);
-				render_set_event_callback(EV_KEY_I, &key_I_callback, NULL);
-				render_set_event_callback(EV_KEY_UP, &key_UP_callback, NULL);
-				render_set_event_callback(EV_KEY_DOWN, &key_DOWN_callback, NULL);
-				render_set_event_callback(EV_KEY_LEFT, &key_LEFT_callback, NULL);
-				render_set_event_callback(EV_KEY_RIGHT, &key_RIGHT_callback, NULL);
-			}
-
 
 			if(debug_level > 0)
 				printf("GUVCVIEW: reset to pixelformat=%x width=%i and height=%i\n", v4l2core_get_requested_frame_format(), v4l2core_get_frame_width(), v4l2core_get_frame_height());
@@ -631,7 +579,7 @@ void *capture_loop(void *data)
                 render_set_caption(render_caption);
                 v++;
             }
-			render_frame(frame->yuv_frame, my_render_mask);
+			render_frame(frame->yuv_frame);
 
 			if(check_photo_timer())
 			{

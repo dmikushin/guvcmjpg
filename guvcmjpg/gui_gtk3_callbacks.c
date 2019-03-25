@@ -1080,28 +1080,6 @@ void format_changed(GtkComboBox *wgtInpType, void *data)
 }
 
 /*
- * render fx filter changed event
- * args:
- *    toggle - widget that generated the event
- *    data - pointer to user data
- *
- * asserts:
- *    none
- *
- * returns: none
- */
-void render_fx_filter_changed(GtkToggleButton *toggle, void *data)
-{
-	int filter = GPOINTER_TO_INT(g_object_get_data (G_OBJECT (toggle), "filt_info"));
-
-	uint32_t mask = gtk_toggle_button_get_active (toggle) ?
-			get_render_fx_mask() | filter :
-			get_render_fx_mask() & ~filter;
-
-	set_render_fx_mask(mask);
-}
-
-/*
  * software autofocus checkbox changed event
  * args:
  *    toggle - widget that generated the event

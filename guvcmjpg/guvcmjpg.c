@@ -184,14 +184,6 @@ int main(int argc, char *argv[])
 	/*set the intended fps*/
 	v4l2core_define_fps(my_config->fps_num,my_config->fps_denom);
 
-	/*set fx masks*/
-	set_render_fx_mask(my_config->video_fx);
-
-	/*set OSD mask*/
-	/*make sure VU meter OSD is disabled since it's set by the audio capture*/
-	my_config->osd_mask &= ~REND_OSD_VUMETER_MONO;
-	my_config->osd_mask &= ~REND_OSD_VUMETER_STEREO;
-
 	/*select video codec*/
 	if(debug_level > 1)
 		printf("GUVCVIEW: setting video codec to '%s'\n", my_config->video_codec);

@@ -44,28 +44,6 @@ __BEGIN_DECLS
 #define RENDER_SDL      (1)
 
 #define EV_QUIT      (0)
-#define EV_KEY_UP    (1)
-#define EV_KEY_DOWN  (2)
-#define EV_KEY_LEFT  (3)
-#define EV_KEY_RIGHT (4)
-#define EV_KEY_SPACE (5)
-#define EV_KEY_I     (6)
-#define EV_KEY_V     (7)
-
-/*FX FILTER FLAGS*/
-#define REND_FX_YUV_NOFILT (0)
-#define REND_FX_YUV_MIRROR (1<<0)
-#define REND_FX_YUV_UPTURN (1<<1)
-#define REND_FX_YUV_NEGATE (1<<2)
-#define REND_FX_YUV_MONOCR (1<<3)
-#define REND_FX_YUV_PIECES (1<<4)
-#define REND_FX_YUV_PARTICLES (1<<5)
-
-/*OSD FLAGS*/
-#define REND_OSD_NONE           (0)
-#define REND_OSD_VUMETER_MONO   (1<<0)
-#define REND_OSD_VUMETER_STEREO (1<<1)
-#define REND_OSD_CROSSHAIR      (1<<2)
 
 typedef int (*render_event_callback)(void *data);
 
@@ -74,8 +52,8 @@ typedef struct _render_events_t
 	int id;
 	render_event_callback callback;
 	void *data;
-
 } render_events_t;
+
 /*
  * set verbosity
  * args:
@@ -87,30 +65,6 @@ typedef struct _render_events_t
  * returns: none
  */
 void render_set_verbosity(int value);
-
-/*
- * set the osd mask
- * args:
- *   mask - osd mask (ored)
- *
- * asserts:
- *    none
- *
- * returns: none
- */
-void render_set_osd_mask(uint32_t mask);
-
-/*
- * get the osd mask
- * args:
- *   none
- *
- * asserts:
- *    none
- *
- * returns: osd mask
- */
-uint32_t render_get_osd_mask();
 
 /*
  * get render width
@@ -170,14 +124,13 @@ void render_set_caption(const char* caption);
  * render a frame
  * args:
  *   frame - pointer to frame data (yuyv format)
- *   mask - fx filter mask (or'ed)
  *
  * asserts:
  *   frame is not null
  *
  * returns: error code
  */
-int render_frame(uint8_t *frame, uint32_t mask);
+int render_frame(uint8_t *frame);
 
 /*
  * get event index on render_events_list
@@ -216,57 +169,6 @@ int render_set_event_callback(int id, render_event_callback callback_function, v
  * returns: error code
  */
 int render_call_event_callback(int id);
-
-/*
- * Apply fx filters
- * args:
- *    frame - pointer to frame buffer (yuyv format)
- *    width - frame width
- *    height - frame height
- *    mask  - or'ed filter mask
- *
- * asserts:
- *    frame is not null
- *
- * returns: void
- */
-void render_fx_apply(uint8_t *frame, int width, int height, uint32_t mask);
-
-/*
- * set the vu level for the osd vu meter
- * args:
- *   vu_level - vu level value (2 channel array)
- *
- * asserts:
- *   none
- *
- * returns: none
- */
-void render_set_vu_level(float vu_level[2]);
-
-/*
- * get the vu level for the osd vu meter
- * args:
- *   vu_level - two channel array were vu_level is to be copied
- *
- * asserts:
- *   none
- *
- * returns array with vu meter level
- */
-void render_get_vu_level(float vu_level[2]);
-
-/*
- * clean fx filters
- * args:
- *    none
- *
- * asserts:
- *    none
- *
- * returns: void
- */
-void render_clean_fx();
 
 /*
  * clean render data
