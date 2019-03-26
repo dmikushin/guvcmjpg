@@ -25,42 +25,6 @@
 #include <sys/types.h>
 
 /*
- * time in miliseconds
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: time of day in miliseconds
- */
-//uint32_t ms_time ();
-
-/*
- * time in microseconds
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: time of day in microseconds
- */
-//uint64_t us_time();
-
-/*
- * time in nanoseconds
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: time in nanoseconds
- */
-//uint64_t ns_time ();
-
-/*
  * monotonic time in nanoseconds
  * args:
  *   none
