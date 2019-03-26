@@ -42,36 +42,6 @@
 
 int debug_level = 0;
 
-static __THREAD_TYPE capture_thread;
-
-/*
- * signal callback
- * args:
- *    signum - signal number
- *
- * return: none
- */
-void signal_callback_handler(int signum)
-{
-	printf("GUVCVIEW Caught signal %d\n", signum);
-
-	switch(signum)
-	{
-		case SIGINT:
-			/* Terminate program */
-			quit_callback(NULL);
-			break;
-
-		case SIGUSR1:
-			break;
-
-		case SIGUSR2:
-			/* save image */
-			video_capture_save_image();
-			break;
-	}
-}
-
 int main(int argc, char *argv[])
 {
 	/*check stack size*/
@@ -92,11 +62,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-	
-	// Register signal and signal handler
-	signal(SIGINT,  signal_callback_handler);
-	signal(SIGUSR1, signal_callback_handler);
-	signal(SIGUSR2, signal_callback_handler);
 	
 	/*parse command line options*/
 	if(options_parse(argc, argv))
@@ -156,7 +121,6 @@ int main(int argc, char *argv[])
 	else		
 		set_render_flag(render);
 	
-
 	/*select capture method*/
 	if(strcasecmp(my_config->capture, "read") == 0)
 		v4l2core_set_capture_method(IO_READ);
@@ -177,61 +141,46 @@ int main(int argc, char *argv[])
 	if(my_options->prof_filename)
 		v4l2core_load_control_profile(my_options->prof_filename);
 
-	/*start capture thread if not in control_panel mode*/
-	if(!my_options->control_panel)
-	{
-		/*
-		 * prepare format:
-		 *   doing this inside the capture thread may create a race
-		 *   condition with gui_attach, as it requires the current
-		 *   format to be set
-		 */
-		int format = v4l2core_fourcc_2_v4l2_pixelformat(my_options->format);
+	/*
+	 * prepare format:
+	 *   doing this inside the capture thread may create a race
+	 *   condition with gui_attach, as it requires the current
+	 *   format to be set
+	 */
+	int format = v4l2core_fourcc_2_v4l2_pixelformat(my_options->format);
 
-                if(debug_level > 0)
+	if(debug_level > 0)
 		printf("GUVCVIEW: setting pixelformat to '%s'\n", my_options->format);
 
-		v4l2core_prepare_new_format(format);
-		/*prepare resolution*/
-		v4l2core_prepare_new_resolution(my_config->width, my_config->height);
-		/*try to set the video stream format on the device*/
-		int ret = v4l2core_update_current_format();
+	v4l2core_prepare_new_format(format);
+	/*prepare resolution*/
+	v4l2core_prepare_new_resolution(my_config->width, my_config->height);
+	/*try to set the video stream format on the device*/
+	int ret = v4l2core_update_current_format();
+
+	if(ret != E_OK)
+	{
+		fprintf(stderr, "GUCVIEW: could not set the defined stream format\n");
+		fprintf(stderr, "GUCVIEW: trying first listed stream format\n");
+
+		v4l2core_prepare_valid_format();
+		v4l2core_prepare_valid_resolution();
+		ret = v4l2core_update_current_format();
 
 		if(ret != E_OK)
 		{
-			fprintf(stderr, "GUCVIEW: could not set the defined stream format\n");
-			fprintf(stderr, "GUCVIEW: trying first listed stream format\n");
-
-			v4l2core_prepare_valid_format();
-			v4l2core_prepare_valid_resolution();
-			ret = v4l2core_update_current_format();
-
-			if(ret != E_OK)
-			{
-				fprintf(stderr, "GUCVIEW: also could not set the first listed stream format\n");
-				fprintf(stderr, "GUVCVIEW: Video capture failed\n");
-			}
+			fprintf(stderr, "GUCVIEW: also could not set the first listed stream format\n");
+			fprintf(stderr, "GUVCVIEW: Video capture failed\n");
 		}
-
-		if(ret == E_OK)
-		{
-			capture_loop_data_t cl_data;
-			cl_data.options = (void *) my_options;
-			cl_data.config = (void *) my_config;
-
-			ret = __THREAD_CREATE(&capture_thread, capture_loop, (void *) &cl_data);
-
-			if(ret)
-			{
-				fprintf(stderr, "GUVCVIEW: Video thread creation failed\n");
-			}
-			else if(debug_level > 2)
-				printf("GUVCVIEW: created capture thread with tid: %u\n", (unsigned int) capture_thread);
-		}
+		
+		return -1;
 	}
 
-	if(!my_options->control_panel)
-		__THREAD_JOIN(capture_thread);
+	capture_loop_data_t cl_data;
+	cl_data.options = (void *) my_options;
+	cl_data.config = (void *) my_config;
+
+	capture_loop((void *) &cl_data);
 
 	v4l2core_close_dev();
 
