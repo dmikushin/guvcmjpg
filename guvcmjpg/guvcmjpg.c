@@ -36,7 +36,6 @@
 
 #include "video_capture.h"
 #include "options.h"
-#include "gui.h"
 #include "core_io.h"
 
 #include "config.h"
@@ -64,7 +63,6 @@ void signal_callback_handler(int signum)
 			break;
 
 		case SIGUSR1:
-			gui_click_video_capture_button();
 			break;
 
 		case SIGUSR2:
@@ -139,18 +137,6 @@ int main(int argc, char *argv[])
 	else if(strcasecmp(my_config->render, "sdl") == 0)
 		render = RENDER_SDL;
 
-	/*select gui API*/
-	int gui = GUI_GTK3;
-
-	if(strcasecmp(my_config->gui, "none") == 0)
-		gui = GUI_NONE;
-	else if(strcasecmp(my_config->gui, "gtk3") == 0)
-		gui = GUI_GTK3;
-
-	if(debug_level > 1)
-		printf("GUVCVIEW: main thread (tid: %u)\n",
-			(unsigned int) syscall (SYS_gettid));
-		
 	/*initialize the v4l2 core*/
 	v4l2core_set_verbosity(debug_level);
 	
@@ -163,7 +149,6 @@ int main(int argc, char *argv[])
 	{
 		char message[60];
 		snprintf(message, 59, "no video device (%s) found", my_options->device);
-		gui_error("Guvcmjpg error", "no video device found", 1);
 		v4l2core_close_v4l2_device_list();
 		options_clean();
 		return -1;
@@ -191,22 +176,6 @@ int main(int argc, char *argv[])
 	/*check if need to load a profile*/
 	if(my_options->prof_filename)
 		v4l2core_load_control_profile(my_options->prof_filename);
-
-	/*set the profile file*/
-	if(!my_config->profile_name)
-		my_config->profile_name = strdup(get_profile_name());
-	if(!my_config->profile_path)
-		my_config->profile_path = strdup(get_profile_path());
-	set_profile_name(my_config->profile_name);
-	set_profile_path(my_config->profile_path);
-
-	/*set the photo(image) file*/
-	if(!my_config->photo_name)
-		my_config->photo_name = strdup(get_photo_name());
-	if(!my_config->photo_path)
-		my_config->photo_path = strdup(get_photo_path());
-	set_photo_name(my_config->photo_name);
-	set_photo_path(my_config->photo_path);
 
 	/*start capture thread if not in control_panel mode*/
 	if(!my_options->control_panel)
@@ -241,8 +210,6 @@ int main(int argc, char *argv[])
 			{
 				fprintf(stderr, "GUCVIEW: also could not set the first listed stream format\n");
 				fprintf(stderr, "GUVCVIEW: Video capture failed\n");
-
-				gui_error("Guvcmjpg error", "could not start a video stream in the device", 1);
 			}
 		}
 
@@ -257,18 +224,11 @@ int main(int argc, char *argv[])
 			if(ret)
 			{
 				fprintf(stderr, "GUVCVIEW: Video thread creation failed\n");
-				gui_error("Guvcmjpg error", "could not start the video capture thread", 1);
 			}
 			else if(debug_level > 2)
 				printf("GUVCVIEW: created capture thread with tid: %u\n", (unsigned int) capture_thread);
 		}
 	}
-
-	/*initialize the gui - do this after setting the video stream*/
-	gui_attach(gui, 800, 600, my_options->control_panel);
-
-	/*run the gui loop*/
-	gui_run();
 
 	if(!my_options->control_panel)
 		__THREAD_JOIN(capture_thread);
@@ -286,8 +246,6 @@ int main(int argc, char *argv[])
 	config_clean();
 	options_clean();
 
-	if(debug_level > 0)
-		printf("GUVCVIEW: good bye\n");
-
 	return 0;
 }
+

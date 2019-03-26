@@ -29,7 +29,6 @@
 #include "gviewv4l2core.h"
 #include "gview.h"
 #include "core_io.h"
-#include "gui.h"
 #include "config.h"
 
 #define MAXLINE 100 /*100 char lines max*/
@@ -261,58 +260,6 @@ int config_load(const char *filename)
 			strncpy(my_config.gui, value, 4);
 		else if(strcmp(token, "render") == 0)
 			strncpy(my_config.render, value, 4);
-		else if(strcmp(token, "video_codec") == 0)
-			strncpy(my_config.video_codec, value, 4);
-		else if(strcmp(token, "audio_codec") == 0)
-			strncpy(my_config.audio_codec, value, 4);
-		else if(strcmp(token, "profile_name") == 0 && strlen(value) > 2)
-		{
-			if(my_config.profile_name)
-				free(my_config.profile_name);
-			my_config.profile_name = strdup(value);
-			set_profile_name(value);
-		}
-		else if(strcmp(token, "profile_path") == 0)
-		{
-			if(my_config.profile_path)
-				free(my_config.profile_path);
-			my_config.profile_path = strdup(value);
-			set_profile_path(value);
-		}
-		else if(strcmp(token, "video_name") == 0  && strlen(value) > 2)
-		{
-			if(my_config.video_name)
-				free(my_config.video_name);
-			my_config.video_name = strdup(value);
-		}
-		else if(strcmp(token, "video_path") == 0)
-		{
-			if(my_config.video_path)
-				free(my_config.video_path);
-			my_config.video_path = strdup(value);
-		}
-		else if(strcmp(token, "photo_name") == 0  && strlen(value) > 2)
-		{
-			if(my_config.photo_name)
-				free(my_config.photo_name);
-			my_config.photo_name = strdup(value);
-		}
-		else if(strcmp(token, "photo_path") == 0)
-		{
-			if(my_config.photo_path)
-				free(my_config.photo_path);
-			my_config.photo_path = strdup(value);
-		}
-		else if(strcmp(token, "video_sufix") == 0)
-		{
-			my_config.video_sufix = (int) strtoul(value, NULL, 10);
-			set_video_sufix_flag(my_config.video_sufix);
-		}
-		else if(strcmp(token, "photo_sufix") == 0)
-		{
-			my_config.photo_sufix = (int) strtoul(value, NULL, 10);
-			set_photo_sufix_flag(my_config.photo_sufix);
-		}
 		else if(strcmp(token, "fps_num") == 0)
 			my_config.fps_num = (int) strtoul(value, NULL, 10);
 		else if(strcmp(token, "fps_denom") == 0)
