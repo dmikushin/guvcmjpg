@@ -32,7 +32,6 @@
 #include <assert.h>
 
 #include "gviewv4l2core.h"
-#include "uvc_h264.h"
 #include "frame_decoder.h"
 #include "jpeg_decoder.h"
 #include "colorspaces.h"
@@ -76,60 +75,6 @@ int alloc_v4l2_frames(v4l2_dev_t *vd)
 #endif
 	switch (vd->requested_fmt)
 	{
-		case V4L2_PIX_FMT_H264:
-			/*init h264 context*/
-			ret = h264_init_decoder(width, height);
-
-			if(ret)
-			{
-				fprintf(stderr, "V4L2_CORE: couldn't init h264 decoder\n");
-				return ret;
-			}
-
-			
-			/*frame queue*/
-			for(i=0; i<vd->frame_queue_size; ++i)
-			{
-				vd->frame_queue[i].h264_frame_max_size = width * height; /*1 byte per pixel*/
-				vd->frame_queue[i].h264_frame = calloc(vd->frame_queue[i].h264_frame_max_size, sizeof(uint8_t));
-			
-				if(vd->frame_queue[i].h264_frame == NULL)
-				{
-					fprintf(stderr, "V4L2_CORE: FATAL memory allocation failure (alloc_v4l2_frames): %s\n", strerror(errno));
-					exit(-1);
-				}
-				
-				vd->frame_queue[i].yuv_frame = calloc(framesizeIn, sizeof(uint8_t));
-				if(vd->frame_queue[i].yuv_frame == NULL)
-				{
-					fprintf(stderr, "V4L2_CORE: FATAL memory allocation failure (alloc_v4l2_frames): %s\n", strerror(errno));
-					exit(-1);
-				}
-				
-#ifdef USE_PLANAR_YUV
-				/*no need for a temp buffer*/
-#else
-				/* alloc a temp buffer for colorspace conversion*/
-				vd->frame_queue[i].tmp_buffer_max_size = width * height * 2;
-				vd->frame_queue[i].tmp_buffer = calloc(vd->frame_queue[i].tmp_buffer_max_size, sizeof(uint8_t));
-				if(vd->frame_queue[i].tmp_buffer == NULL)
-				{
-					fprintf(stderr, "V4L2_CORE: FATAL memory allocation failure (alloc_v4l2_frames): %s\n", strerror(errno));
-					exit(-1);
-				}
-#endif
-			}
-			
-			vd->h264_last_IDR = calloc(width * height, sizeof(uint8_t));
-			if(vd->h264_last_IDR == NULL)
-			{
-				fprintf(stderr, "V4L2_CORE: FATAL memory allocation failure (alloc_v4l2_frames): %s\n", strerror(errno));
-				exit(-1);
-			}
-			vd->h264_last_IDR_size = 0; /*reset (no frame stored)*/
-						
-			break;
-
 		case V4L2_PIX_FMT_JPEG:
 		case V4L2_PIX_FMT_MJPEG:
 			/*init jpeg decoder*/
@@ -410,9 +355,6 @@ void clean_v4l2_frames(v4l2_dev_t *vd)
 		free(vd->h264_PPS);
 		vd->h264_PPS = NULL;
 	}
-
-	if(vd->requested_fmt == V4L2_PIX_FMT_H264)
-		h264_close_decoder();
 
 	if(vd->requested_fmt == V4L2_PIX_FMT_JPEG ||
 	   vd->requested_fmt == V4L2_PIX_FMT_MJPEG)
@@ -698,82 +640,6 @@ static int store_extra_data(v4l2_dev_t *vd, v4l2_frame_buff_t *frame)
 }
 
 /*
- * check/store the last IDR frame
- * args:
- *    vd - pointer to device data
- *    frame - pointer to frame buffer
- *
- * asserts:
- *    vd is not NULL
- *
- * return: TRUE (1) if IDR frame
- *         FALSE(0) if non IDR frame
- */
-static uint8_t is_h264_keyframe (v4l2_dev_t *vd, v4l2_frame_buff_t *frame)
-{
-	//check for a IDR frame type
-	if(check_NALU(5, frame->h264_frame, frame->h264_frame_size) != NULL)
-	{
-		memcpy(vd->h264_last_IDR, frame->h264_frame, frame->h264_frame_size);
-		vd->h264_last_IDR_size = frame->h264_frame_size;
-		if(verbosity > 1)
-			printf("V4L2_CORE: (uvc H264) IDR frame found in frame %" PRIu64 "\n",
-				vd->frame_index);
-		return TRUE;
-	}
-
-	return FALSE;
-}
-
-/*
- * demux h264 data from muxed frame
- * args:
- *    h264_data - pointer to demuxed h264 data
- *    buffer - pointer to muxed h264 data
- *    size - buffer size
- *    h264_max_size - maximum size allowed by h264_data buffer
- *
- * asserts:
- *    h264_data is not null
- *    buffer is not null
- *
- * return: demuxed h264 frame data size
- */
-static int demux_h264(uint8_t* h264_data, uint8_t* buffer, int size, int h264_max_size)
-{
-	/*asserts*/
-	assert(h264_data != NULL);
-	assert(buffer != NULL);
-
-	/*
-	 * if h264 is not supported return 0 (empty frame)
-	 */
-	if(h264_get_support() == H264_NONE)
-		return 0;
-
-	/*
-	 * if it's a muxed stream we must demux it first
-	 */
-	if(h264_get_support() == H264_MUXED)
-	{
-		return demux_uvcH264(h264_data, buffer, size, h264_max_size);
-	}
-
-	/*
-	 * (H264_FRAME) store the raw frame in h264 frame buffer
-	 */
-	if(size > h264_max_size)
-	{
-		fprintf(stderr, "V4L2_CORE: (uvc H264) h264 data exceeds max of %i cliping\n",
-			h264_max_size);
-		size = h264_max_size;
-	}
-	memcpy(h264_data, buffer, size);
-	return size;
-
-}
-
-/*
  * decode video stream ( from raw_frame to frame buffer (yuyv format))
  * args:
  *    vd - pointer to device data
@@ -815,42 +681,6 @@ int decode_v4l2_frame(v4l2_dev_t *vd, v4l2_frame_buff_t *frame)
 	int framesizeIn =(width * height << 1);//2 bytes per pixel
 	switch (format)
 	{
-		case V4L2_PIX_FMT_H264:
-			/*
-			 * get the h264 frame in the tmp_buffer
-			 */
-			frame->h264_frame_size = demux_h264(
-				frame->h264_frame,
-				frame->raw_frame,
-				frame->raw_frame_size,
-				frame->h264_frame_max_size);
-
-			/*
-			 * store SPS and PPS info (usually the first two NALU)
-			 * and check/store the last IDR frame
-			 */
-			store_extra_data(vd, frame);
-
-			/*
-			 * check for keyframe and store it
-			 */
-			frame->isKeyframe = is_h264_keyframe(vd, frame);
-
-			//decode if we already have a IDR frame
-			if(vd->h264_last_IDR_size > 0)
-			{
-#ifdef USE_PLANAR_YUV
-				/*no need to convert output*/
-				h264_decode(frame->yuv_frame, frame->h264_frame, frame->h264_frame_size);
-#else
-				/* decode (h264) to frame->tmp_buffer (yuv420p)*/
-				h264_decode(frame->tmp_buffer, frame->h264_frame, frame->h264_frame_size);
-				/* convert to yuyv*/
-				yu12_to_yuyv (frame->yuv_frame, frame->tmp_buffer, width, height);
-#endif
-			}
-			break;
-
 		case V4L2_PIX_FMT_JPEG:
 		case V4L2_PIX_FMT_MJPEG:
 			if(frame->raw_frame_size <= HEADERFRAME1)

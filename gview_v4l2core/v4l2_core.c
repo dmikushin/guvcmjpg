@@ -47,7 +47,6 @@
 #include "v4l2_core.h"
 #include "soft_autofocus.h"
 #include "core_time.h"
-#include "uvc_h264.h"
 #include "frame_decoder.h"
 #include "v4l2_formats.h"
 #include "v4l2_controls.h"
@@ -172,9 +171,6 @@ static int check_v4l2_dev()
 		fprintf(stderr, "V4L2_CORE: no valid frame formats (with valid sizes) found for device\n");
 		return ret;
 	}	
-
-	/*add h264 (uvc muxed) to format list if supported by device*/
-	add_h264_format(vd);
 
 	/*enumerate device controls*/
 	enumerate_v4l2_control(vd);
@@ -482,17 +478,6 @@ static int set_v4l2_framerate ()
 			}
 
 			ret = do_v4l2_framerate_update();
-			/*
-			 * For uvc muxed H264 stream
-			 * since we are restarting the video stream and codec values will be reset
-			 * commit the codec data again
-			 */
-			if(vd->requested_fmt == V4L2_PIX_FMT_H264 && h264_get_support() == H264_MUXED)
-			{
-				if(verbosity > 0)
-					printf("V4L2_CORE: setting muxed H264 stream in MJPG container\n");
-				set_h264_muxed_format(vd);
-			}
 			break;
 	}
 	
@@ -1105,10 +1090,6 @@ v4l2_frame_buff_t *v4l2core_get_frame()
 	/*asserts*/
 	assert(vd != NULL);
 
-	/*for H264 streams request a IDR frame with SPS and PPS data if it's the first frame*/
-	if(vd->requested_fmt == V4L2_PIX_FMT_H264 && vd->frame_index < 1)
-		request_h264_frame_type(vd, PICTURE_TYPE_IDR_FULL);
-
 	int res = 0;
 	int ret = check_frame_available(vd);
 
@@ -1163,28 +1144,6 @@ v4l2_frame_buff_t *v4l2core_get_frame()
 
 		case IO_MMAP:
 		default:
-			//if((vd->setH264ConfigProbe > 0))
-			//{
-
-				//if(vd->setH264ConfigProbe)
-				//{
-					//video_disable(vd);
-					//unmap_buff(vd);
-
-					//h264_commit(vd, global);
-
-					//vd->setH264ConfigProbe = 0;
-					//query_buff(vd);
-					//queue_buff(vd);
-					//video_enable(vd);
-				//}
-
-				//ret = check_frame_available(vd);
-
-				//if (ret < 0)
-					//return ret;
-			//}
-
 			/* dequeue the buffers */
 
 			/*lock the mutex*/
@@ -1324,13 +1283,6 @@ static int try_video_stream_format(int width, int height, int pixelformat)
 	if(stream_status == STRM_OK)
 		v4l2core_stop_stream();
 
-	if(vd->requested_fmt == V4L2_PIX_FMT_H264 && h264_get_support() == H264_MUXED)
-	{
-		if(verbosity > 0)
-			printf("V4L2_CORE: requested H264 stream is supported through muxed MJPG\n");
-		pixelformat = V4L2_PIX_FMT_MJPEG;
-	}
-
     inp.index = vd->this_device;
     if (-1 == xioctl(vd->fd, VIDIOC_S_INPUT, &inp))
         printf("VIDIOC_S_INPUT error!\n");
@@ -1373,13 +1325,6 @@ static int try_video_stream_format(int width, int height, int pixelformat)
 	vd->format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 	ret = xioctl(vd->fd, VIDIOC_S_FMT, &vd->format);
-
-	if(!ret && (vd->requested_fmt == V4L2_PIX_FMT_H264) && (h264_get_support() == H264_MUXED))
-	{
-		if(verbosity > 0)
-			printf("V4L2_CORE: setting muxed H264 stream in MJPG container\n");
-		set_h264_muxed_format(vd);
-	}
 
 	/*unlock the mutex*/
 	__UNLOCK_MUTEX( __PMUTEX );
@@ -2135,334 +2080,6 @@ void v4l2core_set_control_defaults()
 int v4l2core_set_control_value_by_id(int id)
 {
 	return set_control_value_by_id(vd, id);
-}
-
-/*
- * get h264 unit id
- * args:
- *   none
- *
- * asserts:
- *   vd is not null
- *
- * returns: unit id on success or error code ( < 0 ) on fail
- */
-int v4l2core_get_h264_unit_id()
-{
-	/*assertions*/
-	assert(vd != NULL);
-	
-	return vd->h264_unit_id;
-}
-
-/*
- * gets the current h264_config_probe_req data struct
- * args:
- *   none
- *
- * asserts:
- *   vd is not null
- *
- * returns: pointer to current h264_config_probe_req data struct
- */
-uvcx_video_config_probe_commit_t *v4l2core_get_h264_config_probe_req()
-{
-	/*assertions*/
-	assert(vd != NULL);
-	
-	return  &(vd->h264_config_probe_req);
-}
-
-/*
- * flag core to use the preset h264_config_probe_req data (don't reset to default before commit)
- * args:
- *   flag - value to set
- *
- * asserts:
- *   vd is not null
- *
- * returns: none
- */
-void v4l2core_set_h264_no_probe_default(uint8_t flag)
-{
-	/*assertions*/
-	assert(vd != NULL);
-	
-	vd->h264_no_probe_default = flag;
-}
-
-/*
- * get h264_no_probe_default flag
- * args:
- *   none
- *
- * asserts:
- *   vd is not null
- *
- * returns: h264_no_probe_default flag
- */
-uint8_t v4l2core_get_h264_no_probe_default()
-{
-	/*assertions*/
-	assert(vd != NULL);
-	
-	return vd->h264_no_probe_default;
-}
-
-/*
- * get PPS NALU size
- * args:
- *   none
- *
- * asserts:
- *   vd is not null
- *
- * returns: PPS size
- */
-int v4l2core_get_h264_pps_size()
-{
-	/*assertions*/
-	assert(vd != NULL);
-	
-	return vd->h264_PPS_size;
-}
-
-/*
- * get PPS data
- * args:
- *   none
- *
- * asserts:
- *   vd is not null
- *
- * returns: pointer to PPS data
- */
-uint8_t *v4l2core_get_h264_pps()
-{
-	/*assertions*/
-	assert(vd != NULL);
-	
-	return vd->h264_PPS;
-}
-
-/*
- * get SPS NALU size
- * args:
- *   none
- *
- * asserts:
- *   vd is not null
- *
- * returns: SPS size
- */
-int v4l2core_get_h264_sps_size()
-{
-	/*assertions*/
-	assert(vd != NULL);
-	
-	return vd->h264_SPS_size;
-}
-
-/*
- * get SPS data
- * args:
- *   none
- *
- * asserts:
- *   vd is not null
- *
- * returns: pointer to SPS data
- */
-uint8_t *v4l2core_get_h264_sps()
-{
-	/*assertions*/
-	assert(vd != NULL);
-	
-	return vd->h264_SPS;
-}
-
-/*
- * request a IDR frame from the H264 encoder
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: none
- */
-void v4l2core_h264_request_idr()
-{
-	h264_request_idr(vd);
-}
-
-/*
- * resets the h264 encoder
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: 0 on success or error code on fail
- */
-int v4l2core_reset_h264_encoder()
-{
-	return h264_reset_encoder(vd);
-}
-
-/*
- * get the video rate control mode
- * args:
- *   query - query type
- *
- * asserts:
- *   none
- *
- * returns: video rate control mode (FIXME: 0xff on error)
- */
-uint8_t v4l2core_get_h264_video_rate_control_mode(uint8_t query)
-{
-	return h264_get_video_rate_control_mode(vd, query);
-}
-
-/*
- * set the video rate control mode
- * args:
- *   mode - rate mode
- *
- * asserts:
- *   none
- *
- * returns: error code ( 0 -OK)
- */
-int v4l2core_set_h264_video_rate_control_mode(uint8_t mode)
-{
-	return h264_set_video_rate_control_mode(vd, mode);
-}
-
-/*
- * get the temporal scale mode
- * args:
- *   query - query type
- *
- * asserts:
- *   none
- *
- * returns: temporal scale mode (FIXME: 0xff on error)
- */
-uint8_t v4l2core_get_h264_temporal_scale_mode(uint8_t query)
-{
-	return h264_get_temporal_scale_mode(vd, query);
-}
-
-/*
- * set the temporal scale mode
- * args:
- *   mode - temporal scale mode
- *
- * asserts:
- *   none
- *
- * returns: error code ( 0 -OK)
- */
-int v4l2core_set_h264_temporal_scale_mode(uint8_t mode)
-{
-	return h264_set_temporal_scale_mode(vd, mode);
-}
-
-/*
- * get the spatial scale mode
- * args:
- *   query - query type
- *
- * asserts:
- *   none
- *
- * returns: temporal scale mode (FIXME: 0xff on error)
- */
-uint8_t v4l2core_get_h264_spatial_scale_mode(uint8_t query)
-{
-	return h264_get_spatial_scale_mode(vd, query);
-}
-
-/*
- * set the spatial scale mode
- * args:
- *   mode - spatial scale mode
- *
- * asserts:
- *   none
- *
- * returns: error code ( 0 -OK)
- */
-int v4l2core_set_h264_spatial_scale_mode(uint8_t mode)
-{
-	return h264_set_spatial_scale_mode(vd, mode);
-}
-
-/*
- * query the frame rate config
- * args:
- *   query - query type
- *
- * asserts:
- *   none
- *
- * returns: frame rate config (FIXME: 0xffffffff on error)
- */
-uint32_t v4l2core_query_h264_frame_rate_config(uint8_t query)
-{
-	return h264_query_frame_rate_config(vd, query);
-}
-
-/*
- * get the frame rate config
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: frame rate config (FIXME: 0xffffffff on error)
- */
-uint32_t v4l2core_get_h264_frame_rate_config()
-{
-	return h264_get_frame_rate_config(vd);
-}
-
-/*
- * set the frame rate config
- * args:
- *   framerate - framerate
- *
- * asserts:
- *   none
- *
- * returns: error code ( 0 -OK)
- */
-int v4l2core_set_h264_frame_rate_config(uint32_t framerate)
-{
-	return h264_set_frame_rate_config(vd, framerate);
-}
-
-/*
- * updates the h264_probe_commit_req field
- * args:
- *   query - (UVC_GET_CUR; UVC_GET_MAX; UVC_GET_MIN)
- *   config_probe_cur - pointer to uvcx_video_config_probe_commit_t:
- *     if null vd->h264_config_probe_req will be used
- *
- * asserts:
- *   none
- *
- * returns: error code ( 0 -OK)
- */
-int v4l2core_probe_h264_config_probe_req(
-			uint8_t query,
-			uvcx_video_config_probe_commit_t *config_probe_req)
-{
-	return h264_probe_config_probe_req(vd, query, config_probe_req);
 }
 
 /*
