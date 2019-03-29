@@ -45,7 +45,6 @@
 #include "gview.h"
 #include "gviewv4l2core.h"
 #include "v4l2_core.h"
-#include "save_image.h"
 #include "soft_autofocus.h"
 #include "core_time.h"
 #include "uvc_h264.h"
@@ -2137,24 +2136,6 @@ void v4l2core_set_control_defaults()
 int v4l2core_set_control_value_by_id(int id)
 {
 	return set_control_value_by_id(vd, id);
-}
-
-/*
- * save the current frame to file
- * args:
- *    frame - pointer to frame buffer
- *    filename - output file name
- *    format - image type
- *           (IMG_FMT_RAW, IMG_FMT_JPG, IMG_FMT_PNG, IMG_FMT_BMP)
- *
- * asserts:
- *    vd is not null
- *
- * returns: error code
- */
-int v4l2core_save_image(v4l2_frame_buff_t *frame, const char *filename, int format)
-{
-	save_frame_image(vd, frame, filename, format);
 }
 
 /*
