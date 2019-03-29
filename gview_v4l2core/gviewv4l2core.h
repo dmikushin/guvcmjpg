@@ -156,42 +156,6 @@ __BEGIN_DECLS
 #define UVC_GET_DEF                                     0x87
 
 /*
- * h264 probe commit struct (uvc 1.1)
- */
-typedef struct _uvcx_video_config_probe_commit_t
-{
-	uint32_t  dwFrameInterval;
-	uint32_t  dwBitRate;
-	uint16_t  bmHints;
-	uint16_t  wConfigurationIndex;
-	uint16_t  wWidth;
-	uint16_t  wHeight;
-	uint16_t  wSliceUnits;
-	uint16_t  wSliceMode;
-	uint16_t  wProfile;
-	uint16_t  wIFramePeriod;
-	uint16_t  wEstimatedVideoDelay;
-	uint16_t  wEstimatedMaxConfigDelay;
-	uint8_t   bUsageType;
-	uint8_t   bRateControlMode;
-	uint8_t   bTemporalScaleMode;
-	uint8_t   bSpatialScaleMode;
-	uint8_t   bSNRScaleMode;
-	uint8_t   bStreamMuxOption;
-	uint8_t   bStreamFormat;
-	uint8_t   bEntropyCABAC;
-	uint8_t   bTimestamp;
-	uint8_t   bNumOfReorderFrames;
-	uint8_t   bPreviewFlipped;
-	uint8_t   bView;
-	uint8_t   bReserved1;
-	uint8_t   bReserved2;
-	uint8_t   bStreamID;
-	uint8_t   bSpatialLayerRatio;
-	uint16_t  wLeakyBucketSize;
-} __attribute__((__packed__)) uvcx_video_config_probe_commit_t;
-
-/*
  * v4l2 stream capability data
  */
 typedef struct _v4l2_stream_cap_t

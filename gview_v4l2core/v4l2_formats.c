@@ -54,10 +54,6 @@ static v4l2_format_table_t decoder_supported_formats[] =
 		.pixelformat = V4L2_PIX_FMT_JPEG,
 	},
 	{
-		.fourcc = "H264",
-		.pixelformat = V4L2_PIX_FMT_H264,
-	},
-	{
 		.fourcc = "YVYU",
 		.pixelformat = V4L2_PIX_FMT_YVYU,
 	},
@@ -208,41 +204,6 @@ uint8_t can_decode_format(int pixelformat)
 
 	return FALSE;
 }
-
-/*
- * check fourcc against decoder support formats
- * args:
- *    fourcc - v4l2 pixelformat fourcc
- *
- * asserts:
- *    none
- *
- * returns: TRUE(1) if format is supported
- *          FALSE(0) if not
- */
-//uint8_t can_decode_fourcc(const char *fourcc)
-//{
-//	if(!fourcc)
-//		return FALSE;
-
-//	if(strlen(fourcc) != 4)
-//		return FALSE;
-
-//	int i = 0;
-//	int sup_fmt = 0;
-//	do
-//	{
-//		sup_fmt = decoder_supported_formats[i].pixelformat;
-
-//		if(strcmp(fourcc, decoder_supported_formats[i].fourcc) == 0 )
-//			return TRUE;
-
-//		i++;
-//	}
-//	while(sup_fmt);
-//
-//	return FALSE;
-//}
 
 /*
  * enumerate frame intervals (fps)
