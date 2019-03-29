@@ -49,7 +49,6 @@
 #include "core_time.h"
 #include "uvc_h264.h"
 #include "frame_decoder.h"
-#include "control_profile.h"
 #include "v4l2_formats.h"
 #include "v4l2_controls.h"
 #include "v4l2_devices.h"
@@ -2513,36 +2512,6 @@ int v4l2core_get_frame_format_index(int format)
 int v4l2core_get_format_resolution_index(int format, int width, int height)
 {
 	return get_format_resolution_index(vd, format, width, height);
-}
-
-/*
- * save the device control values into a profile file
- * args:
- *   filename - profile filename
- *
- * asserts:
- *   none
- *
- * returns: error code (0 -E_OK)
- */
-int v4l2core_save_control_profile(const char *filename)
-{
-	return save_control_profile(vd, filename);
-}
-
-/*
- * load the device control values from a profile file
- * args:
- *   filename - profile filename
- *
- * asserts:
- *   vd is not null
- *
- * returns: error code (0 -E_OK)
- */
-int v4l2core_load_control_profile(const char *filename)
-{
-	return load_control_profile(vd, filename);
 }
 
 /*

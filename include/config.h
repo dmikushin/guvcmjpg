@@ -33,25 +33,11 @@ typedef struct _config_t
 	char format[5];  /*pixelformat fourcc*/
 	char render[5];  /*render api*/
 	char gui[5];     /*gui api*/
-	char audio[6];   /*audio api - none; port; pulse*/
 	char capture[5]; /*capture method: read or mmap*/
 	char video_codec[5]; /*video codec*/
-	char audio_codec[5]; /*video codec*/
-	char *profile_path;
-	char *profile_name;
-	char *video_path;
-	char *video_name;
-	char *photo_path;
-	char *photo_name;
-	int video_sufix; /*flag if video file has auto suffix enable*/
-	int photo_sufix; /*flag if photo file has auto suffix enable*/
 	int fps_num;
 	int fps_denom;
-    int cmos_camera;    /* using CMOS camera */
-	int audio_device;/*audio device index*/
-	uint32_t video_fx;
-	uint32_t audio_fx;
-	uint32_t osd_mask; /*OSD bit mask*/
+	int cmos_camera;    /* using CMOS camera */
 } config_t;
 
 /*

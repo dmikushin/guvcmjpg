@@ -1021,30 +1021,6 @@ void v4l2core_soft_autofocus_set_focus();
 void v4l2core_soft_autofocus_close();
 
 /*
- * save the device control values into a profile file
- * args:
- *   filename - profile filename
- *
- * asserts:
- *   none
- *
- * returns: error code (0 -E_OK)
- */
-int v4l2core_save_control_profile(const char *filename);
-
-/*
- * load the device control values from a profile file
- * args:
- *   filename - profile filename
- *
- * asserts:
- *   none
- *
- * returns: error code (0 -E_OK)
- */
-int v4l2core_load_control_profile(const char *filename);
-
-/*
  * ########### H264 controls ###########
  */
 

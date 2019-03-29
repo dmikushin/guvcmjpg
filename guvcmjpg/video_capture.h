@@ -128,18 +128,6 @@ void reset_video_timer();
 int quit_callback(void *data);
 
 /*
- * sets the save image flag
- * args:
- *    none
- *
- * asserts:
- *    none
- *
- * returns: none
- */
-void video_capture_save_image();
-
-/*
  * get encoder status
  * args:
  *    none
@@ -162,30 +150,6 @@ int get_encoder_status();
  * returns: none
  */
 void request_format_update();
-
-/*
- * start the encoder thread
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: error code
- */
-int start_encoder_thread();
-
-/*
- * stop the encoder thread
- * args:
- *   none
- *
- * asserts:
- *   none
- *
- * returns: error code
- */
-int stop_encoder_thread();
 
 /*
  * capture loop (should run in a separate thread)

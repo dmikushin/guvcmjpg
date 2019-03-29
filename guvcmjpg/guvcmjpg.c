@@ -137,10 +137,6 @@ int main(int argc, char *argv[])
 	if(debug_level > 1)
 		printf("GUVCVIEW: setting video codec to '%s'\n", my_config->video_codec);
 		
-	/*check if need to load a profile*/
-	if(my_options->prof_filename)
-		v4l2core_load_control_profile(my_options->prof_filename);
-
 	/*
 	 * prepare format:
 	 *   doing this inside the capture thread may create a race

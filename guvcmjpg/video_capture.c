@@ -47,8 +47,6 @@ extern int debug_level;
 
 static int render = RENDER_SDL; /*render API*/
 static int quit = 0; /*terminate flag*/
-static int save_image = 0; /*save image flag*/
-static int save_video = 0; /*save video flag*/
 
 static uint64_t my_photo_timer = 0; /*timer count*/
 
@@ -94,54 +92,6 @@ void set_render_flag(int value)
 void set_soft_autofocus(int value)
 {
 	do_soft_autofocus = value;
-}
-
-/*
- * sets the save video flag
- * args:
- *    value - save_video flag value
- *
- * asserts:
- *    none
- *
- * returns: none
- */
-void video_capture_save_video(int value)
-{
-	save_video = value;
-	
-	if(debug_level > 1)
-		printf("GUVCVIEW: save video flag changed to %i\n", save_video);
-}
-
-/*
- * gets the save video flag
- * args:
- *    none
- *
- * asserts:
- *    none
- *
- * returns: save_video flag
- */
-int video_capture_get_save_video()
-{
-	return save_video;
-}
-
-/*
- * sets the save image flag
- * args:
- *    none
- *
- * asserts:
- *    none
- *
- * returns: none
- */
-void video_capture_save_image()
-{
-	save_image = 1;
 }
 
 /*
