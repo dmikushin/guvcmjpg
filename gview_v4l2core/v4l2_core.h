@@ -58,16 +58,6 @@ typedef struct _v4l2_dev_t
 	v4l2_frame_buff_t *frame_queue;     //frame queue
 	int frame_queue_size;               //size of frame queue (in frames)
 
-	uint8_t h264_unit_id;  				// uvc h264 unit id, if <= 0 then uvc h264 is not supported
-	uint8_t h264_no_probe_default;      // flag core to use the preset h264_config_probe_req data (don't reset to default before commit)
-	uvcx_video_config_probe_commit_t h264_config_probe_req; //probe commit struct for h264 streams
-	uint8_t *h264_last_IDR;             // last IDR frame retrieved from uvc h264 stream
-	int h264_last_IDR_size;             // last IDR frame size
-	uint8_t *h264_SPS;                  // h264 SPS info
-	uint16_t h264_SPS_size;             // SPS size
-	uint8_t *h264_PPS;                  // h264 PPS info
-	uint16_t h264_PPS_size;             // PPS size
-
     int this_device;                    // index of this device in device list
 
     v4l2_ctrl_t* list_device_controls;    //null terminated linked list of available device controls

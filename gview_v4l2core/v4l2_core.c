@@ -1692,14 +1692,6 @@ int v4l2core_init_dev(const char *device)
 	/*alloc frame buffer queue*/
 	vd->frame_queue = calloc(vd->frame_queue_size, sizeof(v4l2_frame_buff_t));
 	
-	vd->h264_no_probe_default = 0;
-	vd->h264_SPS = NULL;
-	vd->h264_SPS_size = 0;
-	vd->h264_PPS = NULL;
-	vd->h264_PPS_size = 0;
-	vd->h264_last_IDR = NULL;
-	vd->h264_last_IDR_size = 0;
-
 	/*set some defaults*/
 	vd->fps_num = 1;
 	vd->fps_denom = 25;

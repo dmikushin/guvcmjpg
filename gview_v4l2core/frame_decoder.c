@@ -253,9 +253,6 @@ int alloc_v4l2_frames(v4l2_dev_t *vd)
 			fprintf(stderr, "V4L2_CORE: (v4l2uvc.c) should never arrive (1)- exit fatal !!\n");
 			ret = E_UNKNOWN_ERR;
 			
-			if(vd->h264_last_IDR)
-				free(vd->h264_last_IDR);
-			vd->h264_last_IDR = NULL;
 			/*frame queue*/
 			for(i=0; i<vd->frame_queue_size; ++i)
 			{
@@ -266,9 +263,6 @@ int alloc_v4l2_frames(v4l2_dev_t *vd)
 				if(vd->frame_queue[i].tmp_buffer)
 					free(vd->frame_queue[i].tmp_buffer);
 				vd->frame_queue[i].tmp_buffer = NULL;
-				if(vd->frame_queue[i].h264_frame)
-					free(vd->frame_queue[i].h264_frame);
-				vd->frame_queue[i].h264_frame = NULL;
 			}
 			return (ret);
 	}
@@ -325,35 +319,11 @@ void clean_v4l2_frames(v4l2_dev_t *vd)
 			vd->frame_queue[i].tmp_buffer = NULL;
 		}
 
-		if(vd->frame_queue[i].h264_frame)
-		{
-			free(vd->frame_queue[i].h264_frame);
-			vd->frame_queue[i].h264_frame = NULL;
-		}
-
 		if(vd->frame_queue[i].yuv_frame)
 		{
 			free(vd->frame_queue[i].yuv_frame);
 			vd->frame_queue[i].yuv_frame = NULL;
 		}
-	}
-
-	if(vd->h264_last_IDR)
-	{
-		free(vd->h264_last_IDR);
-		vd->h264_last_IDR = NULL;
-	}
-
-	if(vd->h264_SPS)
-	{
-		free(vd->h264_SPS);
-		vd->h264_SPS = NULL;
-	}
-
-	if(vd->h264_PPS)
-	{
-		free(vd->h264_PPS);
-		vd->h264_PPS = NULL;
 	}
 
 	if(vd->requested_fmt == V4L2_PIX_FMT_JPEG ||
@@ -589,57 +559,6 @@ static int demux_uvcH264(uint8_t *h264_data, uint8_t *buff, int size, int h264_m
 }
 
 /*
- * Store the SPS and PPS NALUs of uvc H264 stream
- * args:
- *    vd - pointer to device data
- *    frame - pointer to frame buffer
- *
- * asserts:
- *    vd is not null
- *
- * returns: error code (0 - E_OK)
- */
-static int store_extra_data(v4l2_dev_t *vd, v4l2_frame_buff_t *frame)
-{
-	/*asserts*/
-	assert(vd != NULL);
-
-	if(vd->h264_SPS == NULL)
-	{
-		vd->h264_SPS_size = parse_NALU( 7, &vd->h264_SPS,
-			frame->h264_frame,
-			(int) frame->h264_frame_size);
-
-		if(vd->h264_SPS_size <= 0 || vd->h264_SPS == NULL)
-		{
-			fprintf(stderr, "V4L2_CORE: (uvc H264) Could not find SPS (NALU type: 7)\n");
-			return E_NO_DATA;
-		}
-		else if(verbosity > 0)
-			printf("V4L2_CORE: (uvc H264) stored SPS %i bytes of data\n",
-				vd->h264_SPS_size);
-	}
-
-	if(vd->h264_PPS == NULL)
-	{
-		vd->h264_PPS_size = parse_NALU( 8, &vd->h264_PPS,
-			frame->h264_frame,
-			(int) frame->h264_frame_size);
-
-		if(vd->h264_PPS_size <= 0 || vd->h264_PPS == NULL)
-		{
-			fprintf(stderr, "Could not find PPS (NALU type: 8)\n");
-			return E_NO_DATA;
-		}
-		else if(verbosity > 0)
-			printf("V4L2_CORE: (uvc H264) stored PPS %i bytes of data\n",
-				vd->h264_PPS_size);
-	}
-
-	return E_OK;
-}
-
-/*
  * decode video stream ( from raw_frame to frame buffer (yuyv format))
  * args:
  *    vd - pointer to device data
@@ -669,8 +588,6 @@ int decode_v4l2_frame(v4l2_dev_t *vd, v4l2_frame_buff_t *frame)
 
 	int width = vd->format.fmt.pix.width;
 	int height = vd->format.fmt.pix.height;
-
-	frame->isKeyframe = 0; /*reset*/
 
 	/*
 	 * use the requested format since it may differ
