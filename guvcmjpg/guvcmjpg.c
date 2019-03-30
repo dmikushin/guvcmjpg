@@ -72,22 +72,8 @@ int main(int argc, char *argv[])
 	/*get command line options*/
 	options_t *my_options = options_get();
 
-	char *config_path = smart_cat(getenv("HOME"), '/', ".config/guvcview2");
-	mkdir(config_path, 0777);
-
 	char *device_name = get_file_basename(my_options->device);
-
-	char *config_file = smart_cat(config_path, '/', device_name);
-
-	/*clean strings*/
-	free(config_path);
 	free(device_name);
-
-	/*load config data*/
-	config_load(config_file);
-
-	/*update config with options*/
-	config_update(my_options);
 
 	/*get config data*/
 	config_t *my_config = config_get();
@@ -182,13 +168,6 @@ int main(int argc, char *argv[])
 
 	v4l2core_close_v4l2_device_list();
 
-    /*save config before cleaning the options*/
-	config_save(config_file);
-
-	if(config_file)
-		free(config_file);
-
-	config_clean();
 	options_clean();
 
 	return 0;
