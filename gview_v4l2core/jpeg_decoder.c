@@ -121,10 +121,8 @@ int jpeg_decode(uint8_t* out_buf, uint8_t* in_buf, int size)
 	assert(in_buf != NULL);
 	assert(out_buf != NULL);
 
-	int pixelFormat = TJPF_BGRX;
 	int flags = 0;
-    if (tjDecompress2(jpeg_ctx->tjInstance, in_buf, size, out_buf,
-    	jpeg_ctx->width, 0, jpeg_ctx->height, pixelFormat, flags) < 0)
+	if (tjDecompressToYUV(jpeg_ctx->tjInstance, in_buf, size, out_buf, flags) < 0)
 	{
 		fprintf(stderr, "V4L2_CORE: (jpeg decoder) error while decoding frame\n");
 		return 0;
