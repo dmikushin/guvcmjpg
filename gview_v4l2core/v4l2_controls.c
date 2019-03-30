@@ -820,6 +820,7 @@ void get_v4l2_control_values (v4l2_dev_t *vd)
 
     int ret = 0;
     struct v4l2_ext_control clist[vd->num_controls];
+    memset(clist, 0, sizeof(struct v4l2_ext_control) * vd->num_controls);
     v4l2_ctrl_t *current = vd->list_device_controls;
 
     int count = 0;
