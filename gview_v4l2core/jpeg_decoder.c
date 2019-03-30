@@ -42,40 +42,14 @@
 #include "jpeg_decoder.h"
 #include "gview.h"
 
-/*h264 decoder (libavcodec)*/
-#ifdef HAVE_FFMPEG_AVCODEC_H
-#include <ffmpeg/avcodec.h>
-#else
-#include <libavcodec/avcodec.h>
-#endif 
-
-#define LIBAVCODEC_VER_AT_LEAST(major,minor)  (LIBAVCODEC_VERSION_MAJOR > major || \
-                                              (LIBAVCODEC_VERSION_MAJOR == major && \
-                                               LIBAVCODEC_VERSION_MINOR >= minor))
-
-#if !LIBAVCODEC_VER_AT_LEAST(54,25)
-	#define AV_CODEC_ID_H264 CODEC_ID_H264
-#endif
-
-#if !LIBAVCODEC_VER_AT_LEAST(54,25)
-	#define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
-#endif
-
-typedef struct
-{
-	AVCodec* codec;
-	AVCodecContext* context;
-	AVFrame* picture;
-}
-codec_data_t;
+#include "turbojpeg.h"
 
 typedef struct _jpeg_decoder_context_t
 {
-	codec_data_t codec_data;
+	tjhandle tjInstance;
 
 	int width;
 	int height;
-	int pic_size;
 	
 	uint8_t* tmp_frame; //temp frame buffer	
 }
@@ -96,16 +70,6 @@ static jpeg_decoder_context_t* jpeg_ctx = NULL;
  */
 int jpeg_init_decoder(int width, int height)
 {
-#if !LIBAVCODEC_VER_AT_LEAST(53,34)
-	avcodec_init();
-#endif
-	/*
-	 * register all the codecs (we can also register only the codec
-	 * we wish to have smaller code)
-	 */
-	avcodec_register_all();
-	av_log_set_level(AV_LOG_PANIC);
-
 	if (jpeg_ctx != NULL)
 		jpeg_close_decoder();
 
@@ -115,56 +79,12 @@ int jpeg_init_decoder(int width, int height)
 		fprintf(stderr, "V4L2_CORE: FATAL memory allocation failure (jpeg_init_decoder): %s\n", strerror(errno));
 		exit(-1);
 	}
-	
-	codec_data_t* codec_data = &jpeg_ctx->codec_data;
-	codec_data->codec = avcodec_find_decoder(AV_CODEC_ID_MJPEG);
-	if (!codec_data->codec)
-	{
-		fprintf(stderr, "V4L2_CORE: (mjpeg decoder) codec not found\n");
-		free(jpeg_ctx);
-		jpeg_ctx = NULL;
-		return E_NO_CODEC;
-	}
 
-#if LIBAVCODEC_VER_AT_LEAST(53,6)
-	codec_data->context = avcodec_alloc_context3(codec_data->codec);
-	avcodec_get_context_defaults3 (codec_data->context, codec_data->codec);
-#else
-	codec_data->context = avcodec_alloc_context();
-	avcodec_get_context_defaults(codec_data->context);
-#endif
-	if (codec_data->context == NULL)
+	if ((jpeg_ctx->tjInstance = tjInitDecompress()) == NULL)
 	{
-		fprintf(stderr, "V4L2_CORE: FATAL memory allocation failure (h264_init_decoder): %s\n", strerror(errno));
+		fprintf(stderr, "V4L2_CORE: FATAL jpeg decoder initialization failure (jpeg_init_decoder): %s\n", strerror(errno));
 		exit(-1);
 	}
-
-	codec_data->context->pix_fmt = AV_PIX_FMT_YUV422P;
-	codec_data->context->width = width;
-	codec_data->context->height = height;
-	//jpeg_ctx->context->dsp_mask = (FF_MM_MMX | FF_MM_MMXEXT | FF_MM_SSE);
-
-#if LIBAVCODEC_VER_AT_LEAST(53,6)
-	if (avcodec_open2(codec_data->context, codec_data->codec, NULL) < 0)
-#else
-	if (avcodec_open(codec_data->context, codec_data->codec) < 0)
-#endif
-	{
-		fprintf(stderr, "V4L2_CORE: (mjpeg decoder) couldn't open codec\n");
-		avcodec_close(codec_data->context);
-		free(codec_data->context);
-		free(jpeg_ctx);
-		jpeg_ctx = NULL;
-		return E_NO_CODEC;
-	}
-
-#if LIBAVCODEC_VER_AT_LEAST(55,28)
-	codec_data->picture = av_frame_alloc();
-	av_frame_unref(codec_data->picture);
-#else
-	codec_data->picture = avcodec_alloc_frame();
-	avcodec_get_frame_defaults(codec_data->picture);
-#endif
 
 	/*alloc temp buffer*/
 	jpeg_ctx->tmp_frame = calloc(width*height*2, sizeof(uint8_t));
@@ -174,7 +94,6 @@ int jpeg_init_decoder(int width, int height)
 		exit(-1);
 	}
 	
-	jpeg_ctx->pic_size = avpicture_get_size(codec_data->context->pix_fmt, width, height);
 	jpeg_ctx->width = width;
 	jpeg_ctx->height = height;
 
@@ -202,38 +121,16 @@ int jpeg_decode(uint8_t* out_buf, uint8_t* in_buf, int size)
 	assert(in_buf != NULL);
 	assert(out_buf != NULL);
 
-	AVPacket avpkt;
-
-	av_init_packet(&avpkt);
-	 	
-	avpkt.size = size;
-	avpkt.data = in_buf;
-	
-	codec_data_t* codec_data = &jpeg_ctx->codec_data;
-
-	int got_picture = 0;
-	int len = avcodec_decode_video2(codec_data->context, codec_data->picture, &got_picture, &avpkt);
-
-	if (len < 0)
+	int pixelFormat = TJPF_BGRX;
+	int flags = 0;
+    if (tjDecompress2(jpeg_ctx->tjInstance, in_buf, size, out_buf,
+    	jpeg_ctx->width, 0, jpeg_ctx->height, pixelFormat, flags) < 0)
 	{
 		fprintf(stderr, "V4L2_CORE: (jpeg decoder) error while decoding frame\n");
-		return len;
+		return 0;
 	}
-
-	if (got_picture)
-	{
-		avpicture_layout((AVPicture*)codec_data->picture, codec_data->context->pix_fmt, 
-			jpeg_ctx->width, jpeg_ctx->height, jpeg_ctx->tmp_frame, jpeg_ctx->pic_size);
-		/* libavcodec output is in yuv422p */
-#ifdef USE_PLANAR_YUV
-        yuv422p_to_yu12(out_buf, jpeg_ctx->tmp_frame, jpeg_ctx->width, jpeg_ctx->height);
-#else
-		yuv422_to_yuyv(out_buf, jpeg_ctx->tmp_frame, jpeg_ctx->width, jpeg_ctx->height);
-#endif		
-		return jpeg_ctx->pic_size;
-	}
-
-	return 0;
+      
+	return size;
 }
 
 /*
@@ -250,27 +147,14 @@ void jpeg_close_decoder()
 {
 	if (jpeg_ctx == NULL)
 		return;
-		
-	codec_data_t* codec_data = &jpeg_ctx->codec_data;
 
-	avcodec_close(codec_data->context);
-	free(codec_data->context);
-
-#if LIBAVCODEC_VER_AT_LEAST(55,28)
-	av_frame_free(&codec_data->picture);
-#else
-	#if LIBAVCODEC_VER_AT_LEAST(54,28)
-			avcodec_free_frame(&codec_data->picture);
-	#else
-			av_freep(&codec_data->picture);
-	#endif
-#endif
+	tjDestroy(jpeg_ctx->tjInstance);
+	jpeg_ctx->tjInstance = NULL;
 
 	if (jpeg_ctx->tmp_frame)
 		free(jpeg_ctx->tmp_frame);
 		
 	free(jpeg_ctx);
-
 	jpeg_ctx = NULL;
 }
 
