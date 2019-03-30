@@ -25,6 +25,7 @@
 
 #include <SDL.h>
 #include <assert.h>
+#include <signal.h>
 
 #include "gview.h"
 #include "gviewrender.h"
@@ -73,11 +74,16 @@ static SDL_Overlay * video_init(int width, int height, int flags)
     {
         char driver[128];
         /*----------------------------- Test SDL capabilities ---------------------*/
-        if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) < 0)
+        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE) < 0)
         {
             fprintf(stderr, "RENDER: Couldn't initialize SDL: %s\n", SDL_GetError());
             return NULL;
         }
+        
+        /* the SDL_INIT_NOPARACHUTE flag will capture fatal signals so that SDL can */
+        /* clean up after itself. It works for things like SIGSEGV, but apparently  */
+        /* SIGINT is not fatal enough. */
+        signal(SIGINT, SIG_DFL);
 
         /*use hardware acceleration as default*/
         if ( ! getenv("SDL_VIDEO_YUV_HWACCEL") ) putenv("SDL_VIDEO_YUV_HWACCEL=1");
